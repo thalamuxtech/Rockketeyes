@@ -1,0 +1,14 @@
+{
+  "locale": "en-US",
+  "colors": {
+    "red": ["red", "read", "rad", "redd", "wed", "bed", "fred", "reds", "rhett"],
+    "blue": ["blue", "blew", "blu", "blues", "bloo", "clue", "glue", "flu"],
+    "green": ["green", "greene", "grin", "greens", "grain", "queen", "clean"],
+    "yellow": ["yellow", "yello", "yellows", "hello", "jello", "yella", "fellow"],
+    "orange": ["orange", "oranges", "orang", "orage", "arrange", "orinj", "oringe"],
+    "purple": ["purple", "purpel", "purples", "pupil", "people", "purble", "turtle"],
+    "pink": ["pink", "pinc", "pinks", "think", "ping", "link", "sink", "pinky"],
+    "white": ["white", "whites", "wight", "wite", "right", "wide", "why", "light", "quite"]
+  },
+  "loose": ["wed", "bed", "fred", "clue", "glue", "flu", "queen", "clean", "hello", "fellow", "arrange", "people", "turtle", "think", "link", "sink", "right", "why", "light", "quite", "wide"]
+}

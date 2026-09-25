@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="RocketEye — say the color, not the word. A voice-controlled Stroop challenge with Global Legends leaderboards.">
+  <meta name="theme-color" content="#07060F">
+  <meta name="color-scheme" content="dark">
+
+  <meta property="og:title" content="RocketEye — Say the color, not the word">
+  <meta property="og:description" content="Name the ink color out loud. One mistake ends the run. Climb the Global Legends.">
+  <meta property="og:type" content="website">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="RocketEye">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>RocketEye — Say the color, not the word</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; height: 100%; background: #07060F; }
+    #re-splash {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 22px;
+      background: radial-gradient(1200px 700px at 50% 30%, #1b1535 0%, #07060F 70%);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #F4F2FF;
+      transition: opacity .45s ease;
+    }
+    #re-splash.hide { opacity: 0; pointer-events: none; }
+    .re-iris {
+      width: 96px; height: 96px; border-radius: 50%;
+      background: conic-gradient(#FF4D5E 0 12.5%, #4D8DFF 0 25%, #2EE59D 0 37.5%, #FFD93D 0 50%,
+        #FF9F1C 0 62.5%, #B57BFF 0 75%, #FF6FCF 0 87.5%, #F5F5F7 0);
+      display: grid; place-items: center; animation: re-spin 6s linear infinite;
+      box-shadow: 0 0 60px rgba(124, 92, 255, .45);
+    }
+    .re-iris::after {
+      content: ""; width: 60px; height: 60px; border-radius: 50%;
+      background: radial-gradient(circle at 40% 38%, #FFE3A3 0 10%, #F5B83D 30%, #D9951E 58%, #07060F 60%);
+    }
+    .re-title { font-size: 28px; font-weight: 800; letter-spacing: -.5px;
+      background: linear-gradient(90deg, #F4F2FF, #FFE3A3, #F5B83D); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .re-sub { font-size: 14px; color: #A9A5C4; }
+    @keyframes re-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .re-iris { animation: none; } }
+  </style>
+</head>
+<body>
+  <div id="re-splash" aria-label="Loading RocketEye">
+    <div class="re-iris"></div>
+    <div class="re-title">RocketEye</div>
+    <div class="re-sub">Say the color, not the word</div>
+  </div>
+  <script src="speech_bridge.js"></script>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var s = document.getElementById('re-splash');
+      if (s) { s.classList.add('hide'); setTimeout(function () { s.remove(); }, 600); }
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

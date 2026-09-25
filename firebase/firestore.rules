@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// All writes go through the `api` Cloud Function (Admin SDK bypasses rules).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Public profiles (nickname, avatar, country, gamesPlayed).
+    match /users/{uid} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Leaderboard rows (one per period/board/user).
+    match /bests/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Personal score history: owner only.
+    match /scores/{id} {
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Server-only.
+    match /rounds/{id} {
+      allow read, write: if false;
+    }
+    match /nicknames/{id} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

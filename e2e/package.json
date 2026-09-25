@@ -1,0 +1,12 @@
+{
+  "name": "rocketeye-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node serve.mjs",
+    "test": "node run.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
+  }
+}
