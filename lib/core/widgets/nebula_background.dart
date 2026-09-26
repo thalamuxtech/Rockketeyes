@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -34,6 +35,13 @@ class NebulaBackground extends StatefulWidget {
   /// Seconds added to the animation clock (tests jump to specific scenes).
   static double timeOffset = 0;
 
+  /// One journey clock for the whole app, so moving between screens continues
+  /// the trip. It starts at a random point, so each launch begins somewhere
+  /// new (any of the 4 places, any planet).
+  static final Stopwatch _journey = Stopwatch()..start();
+  static final double _start = math.Random().nextDouble() * 4 * 4 * 20.0;
+  static double get journeySeconds => _journey.elapsedMilliseconds / 1000.0 + _start;
+
   /// Set when a device can't draw the shader fast enough (e.g. a browser
   /// without GPU acceleration); every backdrop then uses the gradient.
   static bool _tooSlow = false;
@@ -55,7 +63,8 @@ class NebulaBackground extends StatefulWidget {
 class _NebulaBackgroundState extends State<NebulaBackground>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
-  final ValueNotifier<double> _time = ValueNotifier(0);
+  final ValueNotifier<double> _time =
+      ValueNotifier(NebulaBackground.journeySeconds + NebulaBackground.timeOffset);
   ui.FragmentShader? _shader;
   Duration _lastFrame = Duration.zero;
 
@@ -107,7 +116,7 @@ class _NebulaBackgroundState extends State<NebulaBackground>
         : const Duration(milliseconds: 33);
     if (elapsed - _lastFrame < frame) return;
     _lastFrame = elapsed;
-    final secs = elapsed.inMilliseconds / 1000.0;
+    final secs = NebulaBackground.journeySeconds;
     final jump = NebulaBackground._jump;
     if (jump != null) {
       NebulaBackground.timeOffset = jump - secs;

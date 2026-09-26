@@ -42,7 +42,7 @@
         ]
       },
       {
-        "source": "/assets/**",
+        "source": "/v/**",
         "headers": [
           {
             "key": "Cache-Control",
@@ -51,20 +51,11 @@
         ]
       },
       {
-        "source": "**/*.@(js|wasm|mjs)",
+        "source": "/main.*.dart.js",
         "headers": [
           {
             "key": "Cache-Control",
             "value": "public, max-age=31536000, immutable"
-          }
-        ]
-      },
-      {
-        "source": "**/@(flutter_service_worker.js|flutter_bootstrap.js|index.html)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache"
           }
         ]
       }

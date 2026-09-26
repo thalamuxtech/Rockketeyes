@@ -14,7 +14,7 @@ uniform float uCalm;
 out vec4 fragColor;
 
 const float PI = 3.14159265;
-const float SEG = 34.0;
+const float SEG = 20.0;
 
 float hash11(float p) {
   p = fract(p * 0.1031);
