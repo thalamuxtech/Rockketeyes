@@ -17,6 +17,10 @@ abstract final class Env {
   /// Exposes JavaScript hooks used by the Playwright end-to-end suite.
   static const bool e2e = bool.fromEnvironment('RE_E2E');
 
+  /// Headless test browsers render on the CPU; skip the space shader there
+  /// unless a preview build asks for it (RE_E2E_BG=true).
+  static const bool lightBackground = e2e && !bool.fromEnvironment('RE_E2E_BG');
+
   /// reCAPTCHA Enterprise site key for App Check on web (empty = disabled).
   static const String appCheckWebKey =
       String.fromEnvironment('RE_APPCHECK_WEB_KEY');

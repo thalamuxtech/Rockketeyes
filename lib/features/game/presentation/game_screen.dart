@@ -120,6 +120,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         child: Scaffold(
           body: NebulaBackground(
             intensity: 0.55,
+            calm: true,
             animate: s.phase != RoundPhase.playing,
             child: SafeArea(
               child: Stack(
