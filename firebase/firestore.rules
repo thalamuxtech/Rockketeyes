@@ -29,6 +29,78 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // -----------------------------------------------------------------------
+    // Group challenge rooms: client-written (no Cloud Function involved).
+    // -----------------------------------------------------------------------
+    match /rooms/{code} {
+      function isInt(v) { return v is int; }
+      function validConfig(c) {
+        return c is map
+          && c.keys().hasAll(['cols', 'rows', 'colorSet', 'mode'])
+          && c.keys().hasOnly(['cols', 'rows', 'colorSet', 'mode'])
+          && isInt(c.cols) && c.cols >= 3 && c.cols <= 16
+          && isInt(c.rows) && c.rows >= 4 && c.rows <= 16
+          && c.colorSet in ['easy', 'normal', 'hard', 'colorblind']
+          && c.mode in ['voice', 'tap'];
+      }
+      function validRoom(d) {
+        return d.keys().hasAll(['hostUid', 'hostName', 'status', 'config', 'seed', 'round'])
+          && d.keys().hasOnly(['hostUid', 'hostName', 'status', 'config', 'seed', 'round',
+                               'startAtMs', 'createdAt', 'updatedAt'])
+          && d.hostUid is string
+          && d.hostName is string && d.hostName.size() <= 32
+          && d.status in ['lobby', 'countdown', 'playing', 'finished']
+          && validConfig(d.config)
+          && isInt(d.seed)
+          && isInt(d.round) && d.round >= 0
+          && (!('startAtMs' in d) || d.startAtMs == null || isInt(d.startAtMs));
+      }
+
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('^[A-HJ-NP-Z2-9]{6}$')
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.status == 'lobby'
+        && validRoom(request.resource.data);
+      allow update: if request.auth != null
+        && resource.data.hostUid == request.auth.uid
+        && request.resource.data.hostUid == resource.data.hostUid
+        && validRoom(request.resource.data);
+      allow delete: if request.auth != null && resource.data.hostUid == request.auth.uid;
+
+      match /players/{uid} {
+        function room() { return get(/databases/$(database)/documents/rooms/$(code)); }
+        function validPlayer(d) {
+          return d.keys().hasAll(['uid', 'nickname', 'avatar'])
+            && d.keys().hasOnly(['uid', 'nickname', 'avatar', 'joinedAt', 'joinedAtMs', 'round', 'state',
+                                 'correct', 'cells', 'score', 'elapsedMs', 'finishedAt', 'updatedAt'])
+            && d.nickname is string && d.nickname.size() >= 1 && d.nickname.size() <= 16
+            && d.avatar is string && d.avatar.size() <= 64
+            && (!('state' in d) || d.state in ['waiting', 'playing', 'cleared', 'out', 'left'])
+            && (!('joinedAtMs' in d) || d.joinedAtMs is int)
+            && (!('round' in d) || d.round is int)
+            && (!('correct' in d) || d.correct is int)
+            && (!('cells' in d) || d.cells is int)
+            && (!('score' in d) || d.score is int)
+            && (!('elapsedMs' in d) || d.elapsedMs is int);
+        }
+
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && exists(/databases/$(database)/documents/rooms/$(code))
+          && room().data.status == 'lobby'
+          && validPlayer(request.resource.data);
+        allow update: if request.auth != null
+          && request.resource.data.uid == uid
+          && validPlayer(request.resource.data)
+          && (request.auth.uid == uid || request.auth.uid == room().data.hostUid);
+        allow delete: if request.auth != null
+          && (request.auth.uid == uid || request.auth.uid == room().data.hostUid);
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

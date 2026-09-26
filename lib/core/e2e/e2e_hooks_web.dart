@@ -8,9 +8,16 @@ import '../../features/game/application/game_config.dart';
 import '../../features/game/application/round_controller.dart';
 import '../../features/game/domain/color_set.dart';
 import '../../features/game/domain/grid.dart';
+import '../../features/group/host_screen.dart' show currentHostedRoom;
 
-void install(GoRouter router) {
+void install(GoRouter router, {required Future<Object?> Function() connectGoogle}) {
   final api = JSObject();
+
+  api.setProperty('hostedRoom'.toJS, (() => currentHostedRoom?.toJS).toJS);
+  api.setProperty(
+    'connectGoogle'.toJS,
+    (() => connectGoogle().then((_) => 'ok'.toJS, onError: (Object e) => 'error: $e'.toJS).toJS).toJS,
+  );
 
   api.setProperty(
     'state'.toJS,
@@ -35,6 +42,8 @@ void install(GoRouter router) {
             'ranked': s.ranked,
             'input': s.inputMode.name,
             'mic': s.micStatus.name,
+            'group': s.group?.code,
+            'legendsEligible': s.server?.legendsEligible,
           };
         }
       } catch (_) {}

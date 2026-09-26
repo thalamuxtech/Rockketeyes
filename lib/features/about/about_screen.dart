@@ -9,7 +9,7 @@ import '../../core/widgets/logo.dart';
 import '../../core/widgets/nebula_background.dart';
 import '../game/domain/color_set.dart';
 
-const _developerUrl = 'https://ismailukman.github.io/';
+const _developerUrl = 'https://thalamux-tech.web.app';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -170,12 +170,12 @@ class AboutScreen extends StatelessWidget {
                         const SizedBox(height: AppSpace.sm),
                         ShaderMask(
                           shaderCallback: (b) => AppColors.goldGradient.createShader(b),
-                          child: Text('Lukman Enegi Ismaila, PhD',
+                          child: Text('Thalamuxtech',
                               textAlign: TextAlign.center, style: AppText.heading(24, color: Colors.white)),
                         ),
                         const SizedBox(height: AppSpace.lg),
                         GoldButton(
-                          label: 'Visit ismailukman.github.io',
+                          label: 'Visit thalamux-tech.web.app',
                           icon: LucideIcons.externalLink,
                           expand: false,
                           height: 52,

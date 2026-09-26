@@ -19,12 +19,16 @@ import '../application/round_controller.dart';
 import '../domain/color_set.dart';
 import '../speech/color_recognizer.dart';
 import 'board_view.dart';
+import '../../group/group_results_view.dart';
 import 'results_view.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
-  const GameScreen({super.key, required this.config});
+  const GameScreen({super.key, required this.config, this.group});
 
   final GameConfig config;
+
+  /// Set when playing a round of a group challenge.
+  final GroupRun? group;
 
   @override
   ConsumerState<GameScreen> createState() => _GameScreenState();
@@ -39,7 +43,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     super.initState();
     AudioService.instance.setScene(MusicScene.play);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(roundProvider.notifier).start(widget.config);
+      ref.read(roundProvider.notifier).start(widget.config, group: widget.group);
       _focus.requestFocus();
     });
     _life = AppLifecycleListener(
@@ -58,7 +62,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Future<void> _leave() async {
     final c = ref.read(roundProvider.notifier);
     await c.quit();
-    if (mounted) context.go('/');
+    if (!mounted) return;
+    if (widget.group != null) {
+      Navigator.of(context).pop();
+    } else {
+      context.go('/');
+    }
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
@@ -143,7 +152,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   if (s.phase == RoundPhase.countdown) _CountdownOverlay(value: s.countdown),
                   if (s.phase == RoundPhase.paused) _PausedOverlay(onResume: c.resume, onQuit: _leave),
                   if (s.phase == RoundPhase.ending) _EndingBanner(state: s),
-                  if (s.phase == RoundPhase.results)
+                  if (s.phase == RoundPhase.results && s.group != null)
+                    GroupResultsView(state: s, onBack: _leave)
+                  else if (s.phase == RoundPhase.results)
                     ResultsView(
                       state: s,
                       onPlayAgain: () => c.start(s.config),
@@ -245,6 +256,9 @@ class _RankBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (MediaQuery.sizeOf(context).width < 520) return const SizedBox.shrink();
+    if (state.group != null) {
+      return Pill(label: 'GROUP · ${state.group!.code}', color: AppColors.violet, icon: LucideIcons.users);
+    }
     return state.ranked
         ? const Pill(label: 'RANKED', icon: LucideIcons.trophy)
         : const Pill(label: 'PRACTICE', color: AppColors.textMuted, icon: LucideIcons.dumbbell);

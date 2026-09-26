@@ -7,25 +7,6 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:685148954018:android:65c784c98373b3df8ee6fb",
-        "android_client_info": {
-          "package_name": "com.rocketeye.app"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCa40atiqCQskGaztLVy49hW1mYQhqki84"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:685148954018:android:3d7a2da208c754398ee6fb",
         "android_client_info": {
           "package_name": "com.rockketeyes.app"

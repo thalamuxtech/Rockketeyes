@@ -132,8 +132,14 @@ class SettingsScreen extends ConsumerWidget {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(LucideIcons.fileText, size: 18, color: AppColors.textMuted),
-                      title: Text('Credits & licenses', style: AppText.label(14)),
-                      onTap: () => showLicensePage(context: context, applicationName: 'Rockketeyes'),
+                      title: Text('Terms of Use', style: AppText.label(14)),
+                      onTap: () => context.push('/terms'),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(LucideIcons.scale, size: 18, color: AppColors.textMuted),
+                      title: Text('License Policy', style: AppText.label(14)),
+                      onTap: () => context.push('/license'),
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,

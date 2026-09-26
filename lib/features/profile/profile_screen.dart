@@ -1,13 +1,13 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/avatar/avatar_picker.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/glass.dart';
+import '../../core/widgets/google_connect.dart';
 import '../../core/widgets/toast.dart';
 import '../../core/widgets/nebula_background.dart';
 import '../../services/api_client.dart';
@@ -28,7 +28,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _name = TextEditingController();
   String _seed = '';
   String _country = '';
-  bool _loaded = false;
+  String? _loadedUid;
   bool _saving = false;
   String? _error;
 
@@ -39,8 +39,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _hydrate(Profile p) {
-    if (_loaded) return;
-    _loaded = true;
+    // Re-hydrate when the account changes (e.g. after signing into Google).
+    if (_loadedUid == p.uid) return;
+    _loadedUid = p.uid;
     _name.text = p.nickname;
     _seed = p.avatarSeed;
     _country = p.country;
@@ -71,6 +72,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _pickAvatar() async {
+    final picked = await showAvatarPicker(context, current: _seed, name: _name.text);
+    if (picked == null || !mounted) return;
+    setState(() => _seed = picked);
+    await ref.read(profileProvider.notifier).setLocalAvatar(picked);
   }
 
   Future<void> _pickCountry() async {
@@ -114,22 +122,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       padding: const EdgeInsets.all(AppSpace.xl),
                       child: Column(
                         children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              PlayerAvatar(seed: _seed, name: _name.text, size: 104, ring: AppColors.gold),
-                              Positioned(
-                                right: -6,
-                                bottom: -6,
-                                child: GlassIconButton(
-                                  icon: LucideIcons.dices,
-                                  tooltip: 'New avatar',
-                                  size: 44,
-                                  onPressed: () => setState(
-                                      () => _seed = '${profile.uid}-${math.Random().nextInt(1 << 30)}'),
+                          Semantics(
+                            button: true,
+                            label: 'Change avatar',
+                            child: GestureDetector(
+                              onTap: _pickAvatar,
+                              child: MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    PlayerAvatar(seed: _seed, name: _name.text, size: 112, ring: AppColors.gold),
+                                    Positioned(
+                                      right: -4,
+                                      bottom: -4,
+                                      child: GlassIconButton(
+                                        icon: LucideIcons.palette,
+                                        tooltip: 'Change avatar',
+                                        size: 44,
+                                        onPressed: _pickAvatar,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpace.sm),
+                          TextButton(
+                            onPressed: _pickAvatar,
+                            child: Text('Choose from characters and emoji',
+                                style: AppText.label(13, color: AppColors.gold)),
                           ),
                           const SizedBox(height: AppSpace.xl),
                           TextField(
@@ -177,39 +200,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSpace.lg),
-                    if (!profile.linked)
-                      GlassPanel(
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.shieldCheck, color: AppColors.gold),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Secure your legend', style: AppText.label(15)),
-                                  Text('Link Google to keep your scores on every device.',
-                                      style: AppText.body(12, color: AppColors.textMuted)),
-                                ],
-                              ),
-                            ),
-                            GlassButton(
-                              label: 'Link',
-                              expand: false,
-                              height: 44,
-                              onPressed: () async {
-                                try {
-                                  await ref.read(profileProvider.notifier).linkGoogle();
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    showToast(context, 'Linking failed: $e', icon: Icons.error_outline_rounded);
-                                  }
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
+                    const GoogleConnectCard(),
                     const SizedBox(height: AppSpace.lg),
                     GlassPanel(
                       child: Column(

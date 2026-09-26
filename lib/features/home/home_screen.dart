@@ -93,10 +93,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               const SizedBox(width: AppSpace.md),
                               Expanded(
                                 child: GlassButton(
-                                  label: 'How to play',
-                                  icon: LucideIcons.circleHelp,
-                                  onPressed: () => context.push('/onboarding?replay=1'),
+                                  label: 'Group challenge',
+                                  icon: LucideIcons.users,
+                                  onPressed: () => context.push('/group'),
                                 ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpace.sm),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => context.push('/join'),
+                                icon: const Icon(LucideIcons.qrCode, size: 16, color: AppColors.gold),
+                                label: Text('Join with a PIN', style: AppText.label(14, color: AppColors.gold)),
+                              ),
+                              const SizedBox(width: AppSpace.md),
+                              TextButton.icon(
+                                onPressed: () => context.push('/onboarding?replay=1'),
+                                icon: const Icon(LucideIcons.circleHelp, size: 16, color: AppColors.textMuted),
+                                label: Text('How to play', style: AppText.label(14, color: AppColors.textMuted)),
                               ),
                             ],
                           ),

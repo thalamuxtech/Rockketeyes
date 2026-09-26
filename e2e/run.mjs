@@ -102,15 +102,12 @@ async function collectText(page) {
 }
 
 async function enableSemantics(page) {
-  await page.evaluate(() => {
-    const p = document.querySelector('flt-semantics-placeholder');
-    if (p) p.click();
-  });
+  // E2E builds keep Flutter's accessibility tree on; nothing to toggle.
   await sleep(300);
 }
 
-async function clickButton(page, name) {
-  const b = page.getByRole('button', { name, exact: false }).first();
+async function clickButton(page, name, exact = false) {
+  const b = page.getByRole('button', { name, exact }).first();
   await b.waitFor({ state: 'visible', timeout: 15000 });
   await b.click();
 }
@@ -173,6 +170,20 @@ try {
   await input.fill(nick);
   await sleep(300);
   await snap(page, 'profile');
+  // Avatar studio: pick an emoji avatar.
+  await clickButton(page, 'Choose from characters and emoji');
+  await sleep(1200);
+  await snap(page, 'avatar-studio-characters');
+  await clickButton(page, 'Emoji', true);
+  await sleep(700);
+  await clickButton(page, 'Animals', true);
+  await sleep(500);
+  await clickButton(page, 'Emoji 🦊', true);
+  await sleep(400);
+  await snap(page, 'avatar-studio-emoji');
+  await clickButton(page, 'Use this avatar');
+  await sleep(700);
+  check('avatar studio opens and applies a choice', true);
   await clickButton(page, 'Save profile');
   await waitFor(page, (x) => x.route === '/', 'home after profile save', 15000).catch(() => null);
   s = await state(page);
@@ -200,10 +211,19 @@ try {
   s = await waitFor(page, (x) => x.round.submit === 'done' || x.round.submit === 'failed', 'submit r1', 15000);
   check('ranked score submitted to server', s.round.submit === 'done', s.round.submit);
   check('server score equals client score', s.round.serverScore === s.round.score, `${s.round.serverScore} vs ${s.round.score}`);
-  check('rank returned', typeof s.round.rankAll === 'number', `all-time #${s.round.rankAll}`);
+  check('guest score is kept off Global Legends', s.round.legendsEligible === false && s.round.rankAll == null,
+    `eligible=${s.round.legendsEligible} rank=${s.round.rankAll}`);
   await sleep(1300);
   await snap(page, 'r1-results');
   await collectText(page);
+
+  await collectText(page);
+  const guestCta = await page.getByText('Join Global Legends', { exact: false }).count();
+  check('results invite guests to connect Google', guestCta > 0);
+  const linked = await page.evaluate(() => window.reE2E.connectGoogle());
+  check('Google account connects (and claims past bests)', linked === 'ok', linked);
+  await sleep(1500);
+  await snap(page, 'r1-after-google');
 
   // Round 2: Play again, streaming transcripts, mistake = reading the word at cell 4.
   await clickButton(page, 'Play again');
@@ -218,6 +238,8 @@ try {
   check('score counted until the mistake', s.round.correct === 4, `${s.round.correct} correct`);
   s = await waitFor(page, (x) => x.round.submit !== 'submitting' && x.round.submit !== 'none', 'submit r2', 15000);
   check('mistake round submitted', s.round.submit === 'done', s.round.submit);
+  check('Google-connected score is ranked', s.round.legendsEligible === true && typeof s.round.rankAll === 'number',
+    `all-time #${s.round.rankAll}`);
   await sleep(1300);
   await snap(page, 'r2-results');
 
@@ -278,6 +300,21 @@ try {
   await snap(page, 'settings');
   await collectText(page);
 
+  // Legal pages.
+  const settingsOnly = await page.getByText('Credits', { exact: false }).count();
+  check('settings list Terms of Use and License Policy only', settingsOnly === 0 &&
+    (await page.getByText('Terms of Use').count()) > 0 && (await page.getByText('License Policy').count()) > 0);
+  await page.evaluate(() => window.reE2E.go('/terms'));
+  await sleep(1200);
+  await snap(page, 'terms');
+  check('Terms of Use page renders', (await page.getByText('Fair play', { exact: false }).count()) > 0);
+  await collectText(page);
+  await page.evaluate(() => window.reE2E.go('/license'));
+  await sleep(1200);
+  await snap(page, 'license');
+  check('License Policy page renders', (await page.getByText('Third-party components', { exact: false }).count()) > 0);
+  await collectText(page);
+
   // About screen.
   await page.evaluate(() => window.reE2E.go('/about'));
   await sleep(1500);
@@ -287,7 +324,7 @@ try {
   await page.mouse.wheel(0, 4000);
   await sleep(900);
   await snap(page, 'about-bottom');
-  const dev = await page.getByText('Lukman Enegi Ismaila', { exact: false }).count();
+  const dev = await page.getByText('Thalamuxtech', { exact: false }).count();
   check('About page credits the developer', dev > 0);
   await collectText(page);
 
@@ -300,7 +337,7 @@ try {
   // Standalone about page beside the app.
   const res = await page.goto(BASE + '/about.html');
   const aboutHtml = await page.content();
-  check('standalone about.html is served', res.ok() && aboutHtml.includes('Lukman Enegi Ismaila') && !/[—–]/.test(aboutHtml));
+  check('standalone about.html is served', res.ok() && aboutHtml.includes('Thalamuxtech') && !/[—–]/.test(aboutHtml));
   await snap(page, 'about-html');
   await ctx.close();
 

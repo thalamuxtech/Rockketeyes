@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar.dart';
 import '../../core/widgets/glass.dart';
+import '../../core/widgets/google_connect.dart';
 import '../../core/widgets/nebula_background.dart';
 import '../../services/profile.dart';
 import '../game/application/game_config.dart';
@@ -89,7 +90,7 @@ class _LegendsScreenState extends ConsumerState<LegendsScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: profile == null ? null : _MineBar(future: _mine, profile: profile),
+      bottomNavigationBar: profile == null ? null : _MineBar(future: _mine, profile: profile, onChanged: _load),
     );
   }
 
@@ -394,19 +395,16 @@ class _EntryLine extends StatelessWidget {
   }
 }
 
-class _MineBar extends StatelessWidget {
-  const _MineBar({required this.future, required this.profile});
+class _MineBar extends ConsumerWidget {
+  const _MineBar({required this.future, required this.profile, required this.onChanged});
 
   final Future<({LegendEntry entry, int rank})?>? future;
   final Profile profile;
+  final VoidCallback onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<({LegendEntry entry, int rank})?>(
-      future: future,
-      builder: (context, snap) {
-        final mine = snap.data;
-        return SafeArea(
+  Widget build(BuildContext context, WidgetRef ref) {
+    Widget shell(Widget child) => SafeArea(
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -419,25 +417,61 @@ class _MineBar extends StatelessWidget {
                   fill: const Color(0xE6141026),
                   borderColor: AppColors.gold.withValues(alpha: 0.5),
                   radius: AppRadius.sm + 6,
-                  child: mine == null
-                      ? Row(children: [
-                          PlayerAvatar(seed: profile.avatarSeed, name: profile.nickname, size: 36),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              snap.connectionState == ConnectionState.done
-                                  ? 'You haven\'t ranked on this board yet'
-                                  : 'Finding your rank…',
-                              style: AppText.label(13, color: AppColors.textMuted),
-                            ),
-                          ),
-                        ])
-                      : _EntryLine(rank: mine.rank, entry: mine.entry, me: true),
+                  child: child,
                 ),
               ),
             ),
           ),
         );
+
+    final rename = GlassIconButton(
+      icon: LucideIcons.pencil,
+      tooltip: 'Edit name and avatar',
+      size: 40,
+      onPressed: () => context.push('/profile'),
+    );
+
+    if (!profile.linked) {
+      return shell(Row(children: [
+        PlayerAvatar(seed: profile.avatarSeed, name: profile.nickname, size: 36),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text('Connect Google to join Global Legends',
+              style: AppText.label(13, color: AppColors.textMuted), maxLines: 2),
+        ),
+        GoogleButton(
+          label: 'Connect',
+          onPressed: () async {
+            if (await connectGoogleFlow(context, ref)) onChanged();
+          },
+        ),
+      ]));
+    }
+
+    return FutureBuilder<({LegendEntry entry, int rank})?>(
+      future: future,
+      builder: (context, snap) {
+        final mine = snap.data;
+        return shell(Row(children: [
+          Expanded(
+            child: mine == null
+                ? Row(children: [
+                    PlayerAvatar(seed: profile.avatarSeed, name: profile.nickname, size: 36),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        snap.connectionState == ConnectionState.done
+                            ? 'You haven\'t ranked on this board yet'
+                            : 'Finding your rank…',
+                        style: AppText.label(13, color: AppColors.textMuted),
+                      ),
+                    ),
+                  ])
+                : _EntryLine(rank: mine.rank, entry: mine.entry, me: true),
+          ),
+          const SizedBox(width: 8),
+          rename,
+        ]));
       },
     );
   }

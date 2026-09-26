@@ -67,6 +67,7 @@ class ServerResult {
     required this.ranked,
     required this.review,
     required this.personalBest,
+    this.legendsEligible = true,
     this.rankDay,
     this.rankWeek,
     this.rankAll,
@@ -76,6 +77,9 @@ class ServerResult {
   final bool ranked;
   final bool review;
   final bool personalBest;
+
+  /// False when the player hasn't connected Google (not on Global Legends).
+  final bool legendsEligible;
   final int? rankDay;
   final int? rankWeek;
   final int? rankAll;
@@ -87,11 +91,29 @@ class ServerResult {
       ranked: j['ranked'] == true,
       review: j['review'] == true,
       personalBest: j['personalBest'] == true,
+      legendsEligible: j['legendsEligible'] != false,
       rankDay: (rank?['day'] as num?)?.toInt(),
       rankWeek: (rank?['week'] as num?)?.toInt(),
       rankAll: (rank?['all'] as num?)?.toInt(),
     );
   }
+}
+
+/// A round played inside a group challenge room.
+class GroupRun {
+  const GroupRun({
+    required this.code,
+    required this.round,
+    required this.seed,
+    required this.onProgress,
+    required this.onFinish,
+  });
+
+  final String code;
+  final int round;
+  final int seed;
+  final void Function(int correct, int cells, int elapsedMs) onProgress;
+  final void Function(ScoreBreakdown result) onFinish;
 }
 
 class RoundState {
@@ -117,6 +139,7 @@ class RoundState {
     this.previousBest = 0,
     this.idleHint = false,
     this.notice,
+    this.group,
   });
 
   final RoundPhase phase;
@@ -143,8 +166,12 @@ class RoundState {
   final bool idleHint;
   final String? notice;
 
+  /// Set when this round belongs to a group challenge.
+  final GroupRun? group;
+
   int get streak => events.where((e) => e.correct).length;
-  Cell? get activeCell => activeIndex < cells.length ? cells[activeIndex] : null;
+  Cell? get activeCell =>
+      activeIndex < cells.length ? cells[activeIndex] : null;
   bool get ranked => roundId != null && config.rankable && !offline;
 
   RoundState copyWith({
@@ -174,30 +201,30 @@ class RoundState {
     bool? idleHint,
     String? notice,
     bool clearNotice = false,
-  }) =>
-      RoundState(
-        phase: phase ?? this.phase,
-        config: config ?? this.config,
-        cells: cells ?? this.cells,
-        activeIndex: activeIndex ?? this.activeIndex,
-        events: events ?? this.events,
-        countdown: countdown ?? this.countdown,
-        mistake: clearMistake ? null : (mistake ?? this.mistake),
-        heard: heard ?? this.heard,
-        lastCorrectIndex: lastCorrectIndex ?? this.lastCorrectIndex,
-        micStatus: micStatus ?? this.micStatus,
-        micError: micError ?? this.micError,
-        inputMode: inputMode ?? this.inputMode,
-        roundId: clearRound ? null : (roundId ?? this.roundId),
-        offline: offline ?? this.offline,
-        breakdown: clearBreakdown ? null : (breakdown ?? this.breakdown),
-        submit: submit ?? this.submit,
-        server: clearServer ? null : (server ?? this.server),
-        localBest: localBest ?? this.localBest,
-        previousBest: previousBest ?? this.previousBest,
-        idleHint: idleHint ?? this.idleHint,
-        notice: clearNotice ? null : (notice ?? this.notice),
-      );
+  }) => RoundState(
+    phase: phase ?? this.phase,
+    config: config ?? this.config,
+    cells: cells ?? this.cells,
+    activeIndex: activeIndex ?? this.activeIndex,
+    events: events ?? this.events,
+    countdown: countdown ?? this.countdown,
+    mistake: clearMistake ? null : (mistake ?? this.mistake),
+    heard: heard ?? this.heard,
+    lastCorrectIndex: lastCorrectIndex ?? this.lastCorrectIndex,
+    micStatus: micStatus ?? this.micStatus,
+    micError: micError ?? this.micError,
+    inputMode: inputMode ?? this.inputMode,
+    roundId: clearRound ? null : (roundId ?? this.roundId),
+    offline: offline ?? this.offline,
+    breakdown: clearBreakdown ? null : (breakdown ?? this.breakdown),
+    submit: submit ?? this.submit,
+    server: clearServer ? null : (server ?? this.server),
+    localBest: localBest ?? this.localBest,
+    previousBest: previousBest ?? this.previousBest,
+    idleHint: idleHint ?? this.idleHint,
+    notice: clearNotice ? null : (notice ?? this.notice),
+    group: group,
+  );
 }
 
 /// Runs one sudden-death round: countdown → continuous listening → highlight
@@ -241,7 +268,7 @@ class RoundController extends Notifier<RoundState> {
 
   bool get _haptics => ref.read(settingsProvider).haptics;
 
-  Future<void> start(GameConfig config) async {
+  Future<void> start(GameConfig config, {GroupRun? group}) async {
     final gen = ++_generation;
     _timer?.cancel();
     _idle?.cancel();
@@ -249,42 +276,54 @@ class RoundController extends Notifier<RoundState> {
       ..stop()
       ..reset();
     await _stopListening();
-    await LocalStore.instance.set('lastConfig', config.toJson());
+    if (group == null)
+      await LocalStore.instance.set('lastConfig', config.toJson());
 
     state = RoundState(
       config: config,
       inputMode: config.mode,
       previousBest: LocalStore.instance.bestFor(config.boardId),
+      group: group,
     );
 
     // 1. Seed: ranked rounds get theirs from the server.
     int seed;
     String? roundId;
     var offline = false;
-    try {
-      final res = await ApiClient.instance.post('/round/start', {
-        'cols': config.size.cols,
-        'rows': config.size.rows,
-        'colorSet': config.colorSet.name,
-        'congruentRatio': 0,
-        'mode': config.mode.name,
-      });
-      seed = (res['seed'] as num).toInt();
-      roundId = res['roundId'] as String?;
-    } catch (e) {
-      debugPrint('round/start failed, playing offline: $e');
-      seed = math.Random().nextInt(0x7FFFFFFF);
-      offline = true;
+    if (group != null) {
+      seed = group.seed;
+    } else {
+      try {
+        final res = await ApiClient.instance.post('/round/start', {
+          'cols': config.size.cols,
+          'rows': config.size.rows,
+          'colorSet': config.colorSet.name,
+          'congruentRatio': 0,
+          'mode': config.mode.name,
+        });
+        seed = (res['seed'] as num).toInt();
+        roundId = res['roundId'] as String?;
+      } catch (e) {
+        debugPrint('round/start failed, playing offline: $e');
+        seed = math.Random().nextInt(0x7FFFFFFF);
+        offline = true;
+      }
     }
     if (gen != _generation) return;
 
-    final cells = GridGenerator.generate(size: config.size, colorKeys: config.colorSet.keys, seed: seed);
+    final cells = GridGenerator.generate(
+      size: config.size,
+      colorKeys: config.colorSet.keys,
+      seed: seed,
+    );
     state = state.copyWith(
       cells: cells,
       roundId: roundId,
       offline: offline,
       phase: RoundPhase.arming,
-      notice: offline ? 'You are offline. This round is practice only.' : null,
+      notice: offline && group == null
+          ? 'You are offline. This round is practice only.'
+          : null,
     );
 
     // 2. Microphone.
@@ -326,7 +365,10 @@ class RoundController extends Notifier<RoundState> {
   Future<bool> _startListening(GameConfig config) async {
     final rec = _recognizer ??= createRecognizer();
     if (!await rec.isSupported()) {
-      state = state.copyWith(micStatus: RecognizerStatus.unsupported, micError: rec.lastError);
+      state = state.copyWith(
+        micStatus: RecognizerStatus.unsupported,
+        micError: rec.lastError,
+      );
       return false;
     }
     for (final s in _subs) {
@@ -334,14 +376,26 @@ class RoundController extends Notifier<RoundState> {
     }
     _subs
       ..clear()
-      ..add(rec.tokens.listen((t) => answer(t.color, heard: t.heard, loose: t.loose)))
-      ..add(rec.transcripts.listen((t) {
-        if (state.phase == RoundPhase.playing && t.isNotEmpty) {
-          state = state.copyWith(heard: t.split(' ').where((w) => w.isNotEmpty).lastOrNull ?? '');
-        }
-      }))
+      ..add(
+        rec.tokens.listen(
+          (t) => answer(t.color, heard: t.heard, loose: t.loose),
+        ),
+      )
+      ..add(
+        rec.transcripts.listen((t) {
+          if (state.phase == RoundPhase.playing && t.isNotEmpty) {
+            state = state.copyWith(
+              heard: t.split(' ').where((w) => w.isNotEmpty).lastOrNull ?? '',
+            );
+          }
+        }),
+      )
       ..add(rec.levels.listen((v) => micLevel.value = v))
-      ..add(rec.status.listen((s) => state = state.copyWith(micStatus: s, micError: rec.lastError)));
+      ..add(
+        rec.status.listen(
+          (s) => state = state.copyWith(micStatus: s, micError: rec.lastError),
+        ),
+      );
 
     final ready = Completer<bool>();
     late final StreamSubscription<RecognizerStatus> waitSub;
@@ -350,13 +404,18 @@ class RoundController extends Notifier<RoundState> {
       if (s == RecognizerStatus.listening) ready.complete(true);
       if (s == RecognizerStatus.unsupported) ready.complete(false);
       if (s == RecognizerStatus.error &&
-          (rec.lastError == 'not-allowed' || rec.lastError == 'service-not-allowed' || rec.lastError == 'audio-capture')) {
+          (rec.lastError == 'not-allowed' ||
+              rec.lastError == 'service-not-allowed' ||
+              rec.lastError == 'audio-capture')) {
         ready.complete(false);
       }
     });
     await rec.start(allowedColors: config.colorSet.keys.toSet());
     // Some engines never report "listening"; don't block the game on it.
-    final ok = await ready.future.timeout(const Duration(seconds: 6), onTimeout: () => true);
+    final ok = await ready.future.timeout(
+      const Duration(seconds: 6),
+      onTimeout: () => true,
+    );
     await waitSub.cancel();
     return ok;
   }
@@ -372,7 +431,8 @@ class RoundController extends Notifier<RoundState> {
     _idle?.cancel();
     if (state.idleHint) state = state.copyWith(idleHint: false);
     _idle = Timer(const Duration(seconds: 6), () {
-      if (state.phase == RoundPhase.playing) state = state.copyWith(idleHint: true);
+      if (state.phase == RoundPhase.playing)
+        state = state.copyWith(idleHint: true);
     });
   }
 
@@ -385,9 +445,15 @@ class RoundController extends Notifier<RoundState> {
     final t = _clock.elapsedMilliseconds;
 
     if (color == cell.ink) {
-      final events = [...s.events, AnswerEvent(cell.index, color, t, correct: true)];
+      final events = [
+        ...s.events,
+        AnswerEvent(cell.index, color, t, correct: true),
+      ];
       final next = s.activeIndex + 1;
-      AudioService.instance.sfx(Sfx.correct, pitchStep: math.min(7, events.length ~/ 4));
+      AudioService.instance.sfx(
+        Sfx.correct,
+        pitchStep: math.min(7, events.length ~/ 4),
+      );
       if (_haptics) unawaited(HapticFeedback.selectionClick());
       state = s.copyWith(
         events: events,
@@ -396,12 +462,16 @@ class RoundController extends Notifier<RoundState> {
         heard: heard.isEmpty ? color : heard,
       );
       _armIdle();
+      s.group?.onProgress(events.length, s.cells.length, t);
       if (next >= s.cells.length) unawaited(_end(null));
       return;
     }
 
     if (loose) return; // sound-alike noise, not a real attempt
-    final events = [...s.events, AnswerEvent(cell.index, color, t, correct: false)];
+    final events = [
+      ...s.events,
+      AnswerEvent(cell.index, color, t, correct: false),
+    ];
     final kind = color == cell.word ? MistakeKind.word : MistakeKind.color;
     state = s.copyWith(
       events: events,
@@ -426,13 +496,22 @@ class RoundController extends Notifier<RoundState> {
       cells: s.cells.length,
       correct: correctEvents.length,
       correctElapsedMs: correctEvents.isEmpty ? 0 : correctEvents.last.tMs,
-      elapsedMs: s.events.isEmpty ? _clock.elapsedMilliseconds : s.events.last.tMs,
+      elapsedMs: s.events.isEmpty
+          ? _clock.elapsedMilliseconds
+          : s.events.last.tMs,
     );
-    state = s.copyWith(phase: RoundPhase.ending, breakdown: breakdown, idleHint: false);
+    state = s.copyWith(
+      phase: RoundPhase.ending,
+      breakdown: breakdown,
+      idleHint: false,
+    );
     if (mistake == null) AudioService.instance.sfx(Sfx.finish);
 
     // Personal record + history (local, always).
-    final pb = await LocalStore.instance.recordBest(s.config.boardId, breakdown.score);
+    // Group rounds are party games: they don't change solo personal bests.
+    final pb =
+        s.group == null &&
+        await LocalStore.instance.recordBest(s.config.boardId, breakdown.score);
     await LocalStore.instance.addHistory({
       'boardId': s.config.boardId,
       'score': breakdown.score,
@@ -445,8 +524,16 @@ class RoundController extends Notifier<RoundState> {
     if (gen != _generation) return;
     state = state.copyWith(localBest: pb && breakdown.score > 0);
 
-    unawaited(_submit(gen));
-    await Future<void>.delayed(Duration(milliseconds: mistake == null ? 1400 : 1700));
+    final group = state.group;
+    if (group != null) {
+      state = state.copyWith(submit: SubmitStatus.offline);
+      group.onFinish(breakdown);
+    } else {
+      unawaited(_submit(gen));
+    }
+    await Future<void>.delayed(
+      Duration(milliseconds: mistake == null ? 1400 : 1700),
+    );
     if (gen != _generation) return;
     state = state.copyWith(phase: RoundPhase.results);
     AudioService.instance.sfx(Sfx.whoosh);
@@ -466,7 +553,10 @@ class RoundController extends Notifier<RoundState> {
         'events': [for (final e in s.events) e.toJson()],
       });
       if (gen != _generation) return;
-      state = state.copyWith(submit: SubmitStatus.done, server: ServerResult.fromJson(res));
+      state = state.copyWith(
+        submit: SubmitStatus.done,
+        server: ServerResult.fromJson(res),
+      );
     } catch (e) {
       debugPrint('submit failed: $e');
       if (gen != _generation) return;
@@ -515,4 +605,6 @@ class RoundController extends Notifier<RoundState> {
   void clearNotice() => state = state.copyWith(clearNotice: true);
 }
 
-final roundProvider = NotifierProvider.autoDispose<RoundController, RoundState>(RoundController.new);
+final roundProvider = NotifierProvider.autoDispose<RoundController, RoundState>(
+  RoundController.new,
+);

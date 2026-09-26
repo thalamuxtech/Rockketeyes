@@ -9,6 +9,7 @@ import type { Response } from 'express';
 
 import { ApiError } from './core/errors.js';
 import { GENERATOR_VERSION } from './core/grid.js';
+import { bestPerBoard, hasGoogleProvider, type ScoreRow } from './core/legends.js';
 import { parseProfile } from './core/profile.js';
 import { SCORING_VERSION } from './core/scoring.js';
 import { dayKey, isoWeekKey } from './core/time.js';
@@ -88,20 +89,29 @@ interface UserDoc {
   avatarSeed?: string;
   country?: string;
   gamesPlayed?: number;
+  /** Set once a google.com provider has been seen on the account. */
+  google?: boolean;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
 
-function profileOut(uid: string, u: UserDoc) {
+function profileOut(uid: string, u: UserDoc, google: boolean) {
   return {
     uid,
     nickname: u.nickname ?? '',
     avatarSeed: u.avatarSeed ?? uid,
     country: u.country ?? '',
     gamesPlayed: u.gamesPlayed ?? 0,
+    google,
     createdAtMs: u.createdAt instanceof Timestamp ? u.createdAt.toMillis() : null,
     updatedAtMs: u.updatedAt instanceof Timestamp ? u.updatedAt.toMillis() : null,
   };
+}
+
+/** Global Legends eligibility: the Auth account has a linked google.com provider. */
+async function isGoogleUser(uid: string): Promise<boolean> {
+  const user = await getAuth().getUser(uid);
+  return hasGoogleProvider(user.providerData);
 }
 
 // ---------------------------------------------------------------------------
@@ -156,8 +166,10 @@ type Period = 'all' | `d${string}` | `w${string}`;
 
 async function handleScoreSubmit(uid: string, body: unknown) {
   const input = parseSubmit(body);
+  const legendsEligible = await isGoogleUser(uid);
   const firestore = db();
   const roundRef = firestore.collection('rounds').doc(input.roundId);
+  const scoreRef = firestore.collection('scores').doc();
   const userRef = firestore.collection('users').doc(uid);
 
   interface TxResult {
@@ -185,7 +197,8 @@ async function handleScoreSubmit(uid: string, body: unknown) {
     ];
     const bestRefs = periods.map((p) => firestore.collection('bests').doc(`${p.period}_${round.boardId}_${uid}`));
     const userSnap = await tx.get(userRef);
-    const bestSnaps = await Promise.all(bestRefs.map((r) => tx.get(r)));
+    // Global Legends rows are only read/written for Google-linked accounts.
+    const bestSnaps = legendsEligible ? await Promise.all(bestRefs.map((r) => tx.get(r))) : [];
 
     // From here on the round is consumed, even if validation fails, so a
     // rejected log cannot be tweaked and resubmitted.
@@ -209,7 +222,7 @@ async function handleScoreSubmit(uid: string, body: unknown) {
     const createdAt = Timestamp.fromMillis(now);
 
     if (user) {
-      tx.update(userRef, { gamesPlayed: FieldValue.increment(1) });
+      tx.update(userRef, { gamesPlayed: FieldValue.increment(1), ...(legendsEligible ? { google: true } : {}) });
     } else {
       tx.set(userRef, {
         nickname,
@@ -217,6 +230,7 @@ async function handleScoreSubmit(uid: string, body: unknown) {
         avatarSeed,
         country,
         gamesPlayed: 1,
+        ...(legendsEligible ? { google: true } : {}),
         createdAt,
         updatedAt: createdAt,
       });
@@ -232,7 +246,7 @@ async function handleScoreSubmit(uid: string, body: unknown) {
       correctElapsedMs: verdict.correctElapsedMs,
       mistakeKind: verdict.mistakeKind,
     };
-    tx.set(firestore.collection('scores').doc(), {
+    tx.set(scoreRef, {
       uid,
       nickname,
       avatarSeed,
@@ -244,6 +258,7 @@ async function handleScoreSubmit(uid: string, body: unknown) {
       mode: round.mode,
       ranked: round.ranked,
       review: verdict.review,
+      legendsEligible,
       ...common,
       scoringVersion: SCORING_VERSION,
       createdAt: FieldValue.serverTimestamp(),
@@ -254,7 +269,7 @@ async function handleScoreSubmit(uid: string, body: unknown) {
 
     let personalBest = false;
     const bestScores: Record<string, number> = {};
-    if (round.ranked && !verdict.review) {
+    if (round.ranked && !verdict.review && legendsEligible) {
       periods.forEach((p, idx) => {
         const snap = bestSnaps[idx]!;
         const prev = snap.exists ? (snap.data()!.score as number) : undefined;
@@ -284,8 +299,25 @@ async function handleScoreSubmit(uid: string, body: unknown) {
   const verdict = result.verdict!;
   const round = result.round!;
 
+  let personalBest = result.personalBest;
+  if (round.ranked && !verdict.review && !legendsEligible) {
+    // No `bests` rows for this player: compare against their own score
+    // history for the board (ranked, non-review). The new score doc is
+    // already committed, so it is the only one allowed at >= its score.
+    const agg = await firestore
+      .collection('scores')
+      .where('uid', '==', uid)
+      .where('boardId', '==', round.boardId)
+      .where('ranked', '==', true)
+      .where('review', '==', false)
+      .where('score', '>=', verdict.score)
+      .count()
+      .get();
+    personalBest = agg.data().count <= 1;
+  }
+
   let rank: { day: number; week: number; all: number } | null = null;
-  if (round.ranked && !verdict.review) {
+  if (round.ranked && !verdict.review && legendsEligible) {
     const counts = await Promise.all(
       result.periods.map(async (p) => {
         const agg = await firestore
@@ -312,13 +344,89 @@ async function handleScoreSubmit(uid: string, body: unknown) {
     elapsedMs: verdict.elapsedMs,
     ranked: round.ranked,
     review: verdict.review,
-    personalBest: result.personalBest,
+    personalBest,
+    legendsEligible,
     rank,
   };
 }
 
+async function handleLegendsClaim(uid: string) {
+  const authUser = await getAuth().getUser(uid);
+  if (!hasGoogleProvider(authUser.providerData)) {
+    throw new ApiError(403, 'google_required', 'Link a Google account to appear in Global Legends.');
+  }
+  const firestore = db();
+  const userRef = firestore.collection('users').doc(uid);
+  const now = Date.now();
+  const day = dayKey(now);
+  const week = isoWeekKey(now);
+
+  const scoresSnap = await firestore.collection('scores').where('uid', '==', uid).get();
+  const rows = scoresSnap.docs.map((d) => d.data() as ScoreRow);
+  const wanted = bestPerBoard(rows, day, week);
+
+  return firestore.runTransaction(async (tx) => {
+    const userSnap = await tx.get(userRef);
+    const user = (userSnap.exists ? userSnap.data() : undefined) as UserDoc | undefined;
+    const nickname = user?.nickname ?? defaultNickname();
+    const avatarSeed = user?.avatarSeed ?? uid;
+    const country = user?.country ?? '';
+
+    const refs = wanted.map((w) => firestore.collection('bests').doc(`${w.period}_${w.boardId}_${uid}`));
+    const snaps = refs.length > 0 ? await tx.getAll(...refs) : [];
+
+    const boards = new Set<string>();
+    let claimed = 0;
+    wanted.forEach((w, idx) => {
+      const snap = snaps[idx]!;
+      const prev = snap.exists ? (snap.data()!.score as number) : undefined;
+      if (prev !== undefined && w.score.score <= prev) return;
+      const s = w.score;
+      const createdAtMs = typeof s.createdAtMs === 'number' ? s.createdAtMs : now;
+      tx.set(refs[idx]!, {
+        uid,
+        nickname,
+        avatarSeed,
+        country,
+        boardId: w.boardId,
+        period: w.period,
+        score: s.score,
+        cells: s.cells,
+        correct: s.correct,
+        end: s.end,
+        completion: s.completion,
+        elapsedMs: s.elapsedMs,
+        correctElapsedMs: s.correctElapsedMs,
+        mistakeKind: s.mistakeKind ?? null,
+        createdAt: Timestamp.fromMillis(createdAtMs),
+        createdAtMs,
+      });
+      claimed++;
+      boards.add(w.boardId);
+    });
+
+    if (user) {
+      tx.update(userRef, { google: true });
+    } else {
+      const ts = Timestamp.fromMillis(now);
+      tx.set(userRef, {
+        nickname,
+        nicknameLower: nickname.toLowerCase(),
+        avatarSeed,
+        country,
+        gamesPlayed: 0,
+        google: true,
+        createdAt: ts,
+        updatedAt: ts,
+      });
+    }
+    return { claimed, boards: [...boards].sort() };
+  });
+}
+
 async function handleProfilePost(uid: string, body: unknown) {
   const input = parseProfile(body);
+  const google = await isGoogleUser(uid);
   const firestore = db();
   const userRef = firestore.collection('users').doc(uid);
   const nickRef = firestore.collection('nicknames').doc(input.nicknameLower);
@@ -346,12 +454,13 @@ async function handleProfilePost(uid: string, body: unknown) {
       country: input.country,
       updatedAt: now,
     };
+    if (google) update.google = true;
     if (!user) {
       update.createdAt = now;
       update.gamesPlayed = 0;
     }
     tx.set(userRef, update, { merge: true });
-    return profileOut(uid, { ...user, ...update });
+    return profileOut(uid, { ...user, ...update }, google);
   });
 
   // Denormalised leaderboard rows: best effort.
@@ -372,9 +481,9 @@ async function handleProfilePost(uid: string, body: unknown) {
 }
 
 async function handleProfileGet(uid: string) {
-  const snap = await db().collection('users').doc(uid).get();
+  const [snap, google] = await Promise.all([db().collection('users').doc(uid).get(), isGoogleUser(uid)]);
   if (!snap.exists) throw new ApiError(404, 'profile_not_found', 'No profile yet.');
-  return { profile: profileOut(uid, snap.data() as UserDoc) };
+  return { profile: profileOut(uid, snap.data() as UserDoc, google) };
 }
 
 // ---------------------------------------------------------------------------
@@ -397,7 +506,7 @@ export const api = onRequest(
         res.json({ ok: true, generatorVersion: GENERATOR_VERSION, scoringVersion: SCORING_VERSION });
         return;
       }
-      const known = ['POST /round/start', 'POST /score/submit', 'POST /profile', 'GET /profile'];
+      const known = ['POST /round/start', 'POST /score/submit', 'POST /profile', 'GET /profile', 'POST /legends/claim'];
       if (!known.includes(route)) {
         const pathKnown = known.some((k) => k.endsWith(` ${path}`));
         throw pathKnown
@@ -416,6 +525,9 @@ export const api = onRequest(
           break;
         case 'POST /profile':
           out = await handleProfilePost(uid, readBody(req));
+          break;
+        case 'POST /legends/claim':
+          out = await handleLegendsClaim(uid);
           break;
         default:
           out = await handleProfileGet(uid);

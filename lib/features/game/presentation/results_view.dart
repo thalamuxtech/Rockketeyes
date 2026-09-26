@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
+import '../../../core/widgets/google_connect.dart';
 import '../application/round_controller.dart';
 import '../domain/color_set.dart';
 import 'game_screen.dart' show formatClock;
@@ -316,7 +317,9 @@ class _RankStrip extends StatelessWidget {
         child = _note(LucideIcons.cloudOff, 'Couldn\'t reach Global Legends. Your record is saved on this device.');
       case SubmitStatus.done:
         final r = state.server!;
-        if (!r.ranked) {
+        if (r.ranked && !r.legendsEligible) {
+          child = const GoogleConnectCard(compact: true);
+        } else if (!r.ranked) {
           child = _note(LucideIcons.dumbbell, 'Practice board, not ranked.');
         } else if (r.review) {
           child = _note(LucideIcons.shieldAlert, 'Score submitted for review before it appears on the board.');

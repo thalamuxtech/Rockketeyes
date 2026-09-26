@@ -52,6 +52,64 @@ function gridFor(start, cols, rows, colorSet) {
   return generateGrid({ size: { cols, rows }, colorKeys: COLOR_SETS[colorSet], seed: start.seed, congruentRatio: 0 });
 }
 
+// Link a google.com identity to the (anonymous) account behind idToken via
+// the Auth emulator; returns a fresh idToken for the same uid.
+async function linkGoogle(idToken) {
+  const rand = Math.random().toString(36).slice(2, 10);
+  const claims = { sub: `g-${rand}`, email: `x${rand}@example.com`, email_verified: true };
+  const res = await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=fake`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      idToken,
+      postBody: `id_token=${encodeURIComponent(JSON.stringify(claims))}&providerId=google.com`,
+      requestUri: 'http://localhost',
+      returnIdpCredential: true,
+      returnSecureToken: true,
+    }),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 200, JSON.stringify(body));
+  assert.equal(body.providerId, 'google.com', JSON.stringify(body));
+  return { idToken: body.idToken, uid: body.localId };
+}
+
+const FS_DOCS = `http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents`;
+const fsVal = (v) => (typeof v === 'number' ? { integerValue: String(v) } : { stringValue: v });
+
+// Public (rules-evaluated) query over `bests` via the Firestore REST API.
+async function queryBests(filters) {
+  const res = await fetch(`${FS_DOCS}:runQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: 'bests' }],
+        where: {
+          compositeFilter: {
+            op: 'AND',
+            filters: filters.map(([field, op, value]) => ({ fieldFilter: { field: { fieldPath: field }, op, value: fsVal(value) } })),
+          },
+        },
+      },
+    }),
+  });
+  const rows = await res.json();
+  assert.equal(res.status, 200, JSON.stringify(rows));
+  return rows.filter((r) => r.document).map((r) => r.document);
+}
+
+// Leaderboard position = 1 + number of rows strictly above score. Computed
+// from live data so the smoke test also works against long-running emulators.
+async function expectedRank(period, boardId, score) {
+  const above = await queryBests([
+    ['period', 'EQUAL', period],
+    ['boardId', 'EQUAL', boardId],
+    ['score', 'GREATER_THAN', score],
+  ]);
+  return above.length + 1;
+}
+
 async function main() {
   // Health (no auth), also via the /api prefix that the hosting rewrite uses.
   let r = await call('GET', '/health');
@@ -77,7 +135,18 @@ async function main() {
   r = await call('POST', '/profile', { token: me.idToken, body: { nickname: `  ${nickname}  `, avatarSeed: 'seed-1', country: 'GB' } });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.profile.nickname, nickname);
+  assert.equal(r.body.profile.google, false);
   log('POST /profile', r.body);
+
+  for (const avatarSeed of ['dicebear:adventurer:Nova42', 'emoji:\u{1F98A}:3']) {
+    r = await call('POST', '/profile', { token: me.idToken, body: { nickname, avatarSeed, country: 'GB' } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.profile.avatarSeed, avatarSeed);
+  }
+  r = await call('POST', '/profile', { token: me.idToken, body: { nickname, avatarSeed: 'bad\u0007seed', country: 'GB' } });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error.code, 'invalid_avatar_seed');
+  log('encoded avatars accepted; control char -> 400', r.body.error);
 
   r = await call('POST', '/profile', { token: me.idToken, body: { nickname: 'fuckface', avatarSeed: '', country: '' } });
   assert.equal(r.status, 400);
@@ -94,10 +163,10 @@ async function main() {
   assert.equal(r.status, 400);
   log('invalid size -> 400', r.body.error);
 
-  // Issue three 3x4 normal voice rounds.
+  // Issue four 3x4 normal voice rounds (the 4th is played after linking Google).
   const startBody = { cols: 3, rows: 4, colorSet: 'normal', congruentRatio: 0, mode: 'voice' };
   const starts = [];
-  for (let k = 0; k < 3; k++) {
+  for (let k = 0; k < 4; k++) {
     r = await call('POST', '/round/start', { token: me.idToken, body: startBody });
     assert.equal(r.status, 200, JSON.stringify(r.body));
     assert.equal(r.body.ranked, true);
@@ -105,13 +174,13 @@ async function main() {
     assert.equal(r.body.expiresAt - r.body.issuedAt, 30 * 60 * 1000);
     starts.push(r.body);
   }
-  log('3 rounds started', starts.map((s) => ({ roundId: s.roundId, seed: s.seed })));
+  log('4 rounds started', starts.map((s) => ({ roundId: s.roundId, seed: s.seed })));
 
   // Wait so that elapsedMs (7200) is within wall-clock time since issue.
   await sleep(6800);
 
   // 1. Cleared round: all 12 correct, t spaced 600 ms.
-  const [cleared, mistake, fast] = starts;
+  const [cleared, mistake, fast, afterLink] = starts;
   const g1 = gridFor(cleared, 3, 4, 'normal');
   const clearedEvents = g1.map((c, i) => ({ i, c: c.ink, t: (i + 1) * 600 }));
   r = await call('POST', '/score/submit', { token: me.idToken, body: { roundId: cleared.roundId, elapsedMs: 7200, events: clearedEvents } });
@@ -123,10 +192,11 @@ async function main() {
   assert.ok(r.body.score > 0);
   assert.equal(r.body.ranked, true);
   assert.equal(r.body.review, false);
-  assert.equal(r.body.personalBest, true);
-  assert.deepEqual(r.body.rank, { day: 1, week: 1, all: 1 });
+  assert.equal(r.body.personalBest, true); // from own score history
+  assert.equal(r.body.legendsEligible, false); // anonymous: not on Global Legends
+  assert.equal(r.body.rank, null);
   const clearedScore = r.body.score;
-  log('cleared round submitted', r.body);
+  log('cleared round submitted (anonymous, not legends-eligible)', r.body);
 
   r = await call('POST', '/score/submit', { token: me.idToken, body: { roundId: cleared.roundId, elapsedMs: 7200, events: clearedEvents } });
   assert.equal(r.status, 410);
@@ -145,7 +215,8 @@ async function main() {
   assert.equal(r.body.mistakeKind, 'color');
   assert.ok(r.body.score < clearedScore);
   assert.equal(r.body.personalBest, false);
-  assert.equal(r.body.rank.all, 1);
+  assert.equal(r.body.legendsEligible, false);
+  assert.equal(r.body.rank, null);
   log('mistake round submitted', r.body);
 
   // 3. Too fast: 12 correct at 100 ms each.
@@ -163,28 +234,82 @@ async function main() {
   assert.equal(r.status, 403);
   log("other user's round -> 403", r.body.error);
 
-  // Read the all-time best via the Firestore REST API (public read per rules).
-  const bestId = `all_3x4.normal.voice_${me.uid}`;
-  const fsRes = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/bests/${encodeURIComponent(bestId)}`);
+  // Anonymous players never get Global Legends rows.
+  const BOARD = '3x4.normal.voice';
+  const bestId = `all_${BOARD}_${me.uid}`;
+  const bestUrl = `${FS_DOCS}/bests/${encodeURIComponent(bestId)}`;
+  let fsRes = await fetch(bestUrl);
+  assert.equal(fsRes.status, 404, await fsRes.text());
+  assert.equal((await queryBests([['uid', 'EQUAL', me.uid]])).length, 0);
+  log('anonymous: no bests docs', { id: bestId });
+
+  // Claiming without Google is refused.
+  r = await call('POST', '/legends/claim', { token: me.idToken });
+  assert.equal(r.status, 403);
+  assert.equal(r.body.error.code, 'google_required');
+  log('claim before linking Google -> 403', r.body.error);
+
+  // Link a Google identity to the anonymous account (same uid, new token).
+  const linked = await linkGoogle(me.idToken);
+  assert.equal(linked.uid, me.uid);
+  me.idToken = linked.idToken;
+  r = await call('GET', '/profile', { token: me.idToken });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.profile.google, true);
+  log('Google linked; GET /profile google=true', { uid: linked.uid, google: r.body.profile.google });
+
+  r = await call('POST', '/legends/claim', { token: me.idToken });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.ok(r.body.claimed >= 1);
+  assert.equal(r.body.claimed, 3); // all + day + week for the one board
+  assert.deepEqual(r.body.boards, [BOARD]);
+  log('POST /legends/claim', r.body);
+
+  r = await call('POST', '/legends/claim', { token: me.idToken });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body, { claimed: 0, boards: [] });
+  log('second claim is a no-op', r.body);
+
+  // Read the claimed all-time best via the Firestore REST API (public read per rules).
+  fsRes = await fetch(bestUrl);
   const fsDoc = await fsRes.json();
   assert.equal(fsRes.status, 200, JSON.stringify(fsDoc));
   assert.equal(Number(fsDoc.fields.score.integerValue), clearedScore);
   assert.equal(fsDoc.fields.nickname.stringValue, nickname);
   assert.equal(fsDoc.fields.end.stringValue, 'cleared');
-  log('bests doc via REST', { id: bestId, score: fsDoc.fields.score.integerValue, period: fsDoc.fields.period.stringValue });
+  assert.equal(fsDoc.fields.avatarSeed.stringValue, 'emoji:\u{1F98A}:3');
+  log('claimed bests doc via REST', { id: bestId, score: fsDoc.fields.score.integerValue, period: fsDoc.fields.period.stringValue });
 
-  // List the 3x4 board bests (public) and confirm scores are not publicly readable.
-  const listRes = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/bests?pageSize=20`);
-  const list = await listRes.json();
-  assert.equal(listRes.status, 200);
-  assert.equal((list.documents || []).length, 3); // all + day + week
-  const scoresRes = await fetch(`http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/scores?pageSize=5`);
+  // My bests rows (public) and confirm scores are not publicly readable.
+  const mine = await queryBests([['uid', 'EQUAL', me.uid]]);
+  assert.equal(mine.length, 3); // all + day + week
+  const scoresRes = await fetch(`${FS_DOCS}/scores?pageSize=5`);
   assert.equal(scoresRes.status, 403);
-  log('bests list (3 periods) readable; scores list denied', { bests: list.documents.map((d) => d.name.split('/').pop()) });
+  log('bests (3 periods) readable; scores list denied', { bests: mine.map((d) => d.name.split('/').pop()) });
+
+  // 4. Next submission (now Google-linked) is legends-eligible and ranked.
+  const g4 = gridFor(afterLink, 3, 4, 'normal');
+  const linkedEvents = g4.map((c, i) => ({ i, c: c.ink, t: (i + 1) * 550 }));
+  r = await call('POST', '/score/submit', { token: me.idToken, body: { roundId: afterLink.roundId, elapsedMs: 6600, events: linkedEvents } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.end, 'cleared');
+  assert.equal(r.body.legendsEligible, true);
+  assert.equal(r.body.personalBest, r.body.score > clearedScore);
+  const myBest = Math.max(clearedScore, r.body.score);
+  const periods = (await queryBests([['uid', 'EQUAL', me.uid]])).map((d) => d.fields.period.stringValue);
+  const dayP = periods.find((p) => p.startsWith('d'));
+  const weekP = periods.find((p) => p.startsWith('w'));
+  assert.deepEqual(r.body.rank, {
+    day: await expectedRank(dayP, BOARD, myBest),
+    week: await expectedRank(weekP, BOARD, myBest),
+    all: await expectedRank('all', BOARD, myBest),
+  });
+  log('post-link round submitted (legends-eligible)', r.body);
 
   r = await call('GET', '/profile', { token: me.idToken });
   assert.equal(r.status, 200);
-  assert.equal(r.body.profile.gamesPlayed, 2);
+  assert.equal(r.body.profile.gamesPlayed, 3);
+  assert.equal(r.body.profile.google, true);
   log('GET /profile', r.body);
 
   console.log('\nSMOKE OK');

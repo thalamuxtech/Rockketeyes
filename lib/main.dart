@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'app.dart';
 import 'core/env.dart';
@@ -17,6 +18,7 @@ import 'services/audio_service.dart';
 import 'services/local_store.dart';
 
 Future<void> main() async {
+  usePathUrlStrategy(); // clean links like /join/ABC123 for QR codes
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/avatar/avatar_spec.dart';
+import '../core/env.dart';
 import 'api_client.dart';
 import 'local_store.dart';
 
@@ -16,22 +18,33 @@ class Profile {
     required this.country,
     this.registered = false,
     this.linked = false,
+    this.email,
     this.gamesPlayed = 0,
   });
 
   final String uid;
   final String nickname;
+
+  /// Encoded avatar (see [AvatarSpec]).
   final String avatarSeed;
   final String country;
 
   /// True once the nickname has been saved on the server.
   final bool registered;
 
-  /// True when the anonymous account is linked to Google.
+  /// True when a Google account is connected. Required for Global Legends.
   final bool linked;
+  final String? email;
   final int gamesPlayed;
 
-  Profile copyWith({String? nickname, String? avatarSeed, String? country, bool? registered, bool? linked}) =>
+  Profile copyWith({
+    String? nickname,
+    String? avatarSeed,
+    String? country,
+    bool? registered,
+    bool? linked,
+    String? email,
+  }) =>
       Profile(
         uid: uid,
         nickname: nickname ?? this.nickname,
@@ -39,11 +52,24 @@ class Profile {
         country: country ?? this.country,
         registered: registered ?? this.registered,
         linked: linked ?? this.linked,
+        email: email ?? this.email,
         gamesPlayed: gamesPlayed,
       );
 }
 
-/// Anonymous-first identity with an optional Google upgrade.
+/// Result of connecting Google.
+class GoogleConnectResult {
+  const GoogleConnectResult({required this.switchedAccount, required this.claimed});
+
+  /// The Google account already had a Rockketeyes profile, so we signed into
+  /// it (this device's guest progress stays local).
+  final bool switchedAccount;
+
+  /// Number of past best scores added to Global Legends.
+  final int claimed;
+}
+
+/// Anonymous-first identity with a Google upgrade for Global Legends.
 class ProfileController extends AsyncNotifier<Profile> {
   LocalStore get _store => LocalStore.instance;
 
@@ -54,18 +80,26 @@ class ProfileController extends AsyncNotifier<Profile> {
     final local = Profile(
       uid: uid,
       nickname: _store.get<String>('nickname') ?? '',
-      avatarSeed: _store.get<String>('avatarSeed') ?? uid,
+      avatarSeed: _store.get<String>('avatarSeed') ?? DicebearAvatar('adventurer', uid.substring(0, uid.length.clamp(0, 10))).encode(),
       country: _store.get<String>('country') ?? _deviceCountry(),
       registered: _store.get<bool>('registered') ?? false,
       linked: _isLinked(user),
+      email: _googleEmail(user),
     );
     if (user == null) return local;
     unawaited(_refreshFromServer(local));
     return local;
   }
 
-  static bool _isLinked(User? u) =>
-      u != null && u.providerData.any((p) => p.providerId == 'google.com');
+  static bool _isLinked(User? u) => u != null && u.providerData.any((p) => p.providerId == 'google.com');
+
+  static String? _googleEmail(User? u) {
+    if (u == null) return null;
+    for (final p in u.providerData) {
+      if (p.providerId == 'google.com') return p.email ?? u.email;
+    }
+    return null;
+  }
 
   static String _deviceCountry() {
     final code = PlatformDispatcher.instance.locale.countryCode ?? '';
@@ -76,7 +110,7 @@ class ProfileController extends AsyncNotifier<Profile> {
     final auth = FirebaseAuth.instance;
     if (auth.currentUser != null) return auth.currentUser;
     try {
-      final cred = await auth.signInAnonymously().timeout(const Duration(seconds: 10));
+      final cred = await auth.signInAnonymously().timeout(const Duration(seconds: 30));
       return cred.user;
     } catch (e) {
       debugPrint('Anonymous sign-in failed: $e');
@@ -86,11 +120,8 @@ class ProfileController extends AsyncNotifier<Profile> {
 
   Future<void> _refreshFromServer(Profile local) async {
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(local.uid)
-          .get()
-          .timeout(const Duration(seconds: 8));
+      final snap =
+          await FirebaseFirestore.instance.collection('users').doc(local.uid).get().timeout(const Duration(seconds: 8));
       final d = snap.data();
       if (d == null) return;
       final remote = Profile(
@@ -100,6 +131,7 @@ class ProfileController extends AsyncNotifier<Profile> {
         country: (d['country'] as String?) ?? local.country,
         registered: d['nicknameLower'] != null,
         linked: local.linked,
+        email: local.email,
         gamesPlayed: (d['gamesPlayed'] as num?)?.toInt() ?? 0,
       );
       await _cache(remote);
@@ -136,19 +168,74 @@ class ProfileController extends AsyncNotifier<Profile> {
     state = AsyncData(next);
   }
 
-  /// Keeps the same uid (and scores) while adding a Google login.
-  Future<void> linkGoogle() async {
-    final auth = FirebaseAuth.instance;
-    final user = auth.currentUser;
-    if (user == null) return;
-    final provider = GoogleAuthProvider();
-    if (kIsWeb) {
-      await user.linkWithPopup(provider);
-    } else {
-      await user.linkWithProvider(provider);
-    }
+  /// Keeps the local look even before the server has it (e.g. offline).
+  Future<void> setLocalAvatar(String avatarSeed) async {
     final current = state.value;
-    if (current != null) state = AsyncData(current.copyWith(linked: true));
+    if (current == null) return;
+    final next = current.copyWith(avatarSeed: avatarSeed);
+    await _cache(next);
+    state = AsyncData(next);
+  }
+
+  /// Connects Google to this player. If that Google account already owns a
+  /// Rockketeyes profile, signs into it instead so progress is restored.
+  /// Afterwards, past best scores are added to Global Legends.
+  Future<GoogleConnectResult> connectGoogle() async {
+    final auth = FirebaseAuth.instance;
+    final user = auth.currentUser ?? await _ensureUser();
+    if (user == null) throw FirebaseAuthException(code: 'network-request-failed', message: 'Offline');
+    var switched = false;
+    try {
+      if (Env.useEmulator && Env.e2e) {
+        await user.linkWithCredential(_emulatorGoogleCredential());
+      } else if (kIsWeb) {
+        await user.linkWithPopup(GoogleAuthProvider());
+      } else {
+        await user.linkWithProvider(GoogleAuthProvider());
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'credential-already-in-use' || e.code == 'email-already-in-use') {
+        final cred = e.credential;
+        if (cred != null) {
+          await auth.signInWithCredential(cred);
+        } else if (kIsWeb) {
+          await auth.signInWithPopup(GoogleAuthProvider());
+        } else {
+          await auth.signInWithProvider(GoogleAuthProvider());
+        }
+        switched = true;
+        await _store.set('registered', false);
+      } else {
+        rethrow;
+      }
+    }
+    await auth.currentUser?.getIdToken(true);
+    var claimed = 0;
+    try {
+      final res = await ApiClient.instance.post('/legends/claim', {});
+      claimed = (res['claimed'] as num?)?.toInt() ?? 0;
+    } catch (e) {
+      debugPrint('claim failed: $e');
+    }
+    ref.invalidateSelf();
+    await future;
+    return GoogleConnectResult(switchedAccount: switched, claimed: claimed);
+  }
+
+  /// Auth emulator accepts unsigned Google ID tokens (E2E tests only).
+  static int _fakeGoogleCounter = 0;
+  static AuthCredential _emulatorGoogleCredential() {
+    final id = '${DateTime.now().millisecondsSinceEpoch}${_fakeGoogleCounter++}';
+    return GoogleAuthProvider.credential(
+      idToken: '{"sub":"e2e-$id","email":"pilot$id@example.com","email_verified":true,"name":"E2E Pilot"}',
+    );
+  }
+
+  Future<void> signOut() async {
+    await FirebaseAuth.instance.signOut();
+    await _store.set('registered', false);
+    await _store.set('nickname', '');
+    ref.invalidateSelf();
   }
 }
 
