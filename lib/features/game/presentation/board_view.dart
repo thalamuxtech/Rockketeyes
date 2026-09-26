@@ -12,8 +12,8 @@ class BoardLayout {
   BoardLayout._(this.cellW, this.cellH, this.font, this.scrolls, this.cols, this.rows);
 
   static const double _minFont = 14;
-  static const double _charW = 0.64; // approx advance of Sora w700 per em
-  static const int _maxChars = 6;
+  static const double _minFontFitAcross = 12;
+  static const double _textPad = 16; // horizontal breathing room inside a cell
   static const double pad = 10;
 
   final double cellW;
@@ -26,26 +26,66 @@ class BoardLayout {
   double get width => cellW * cols + pad * 2;
   double get height => cellH * rows + pad * 2;
 
+  /// Small cells get a tighter, thinner ring so it never crowds the word.
+  bool get dense => cellH < 48 || cellW < 90;
+  double get ringInset => dense ? 2 : 3;
+  double get ringStroke => dense ? 2 : 2.5;
+  double get ringRadius => math.min(AppRadius.sm, (cellH - ringInset * 2) * 0.28);
+
   Rect rectOf(int index) {
     final r = index ~/ cols;
     final c = index % cols;
     return Rect.fromLTWH(pad + c * cellW, pad + r * cellH, cellW, cellH);
   }
 
-  factory BoardLayout.fit(Size box, GridSize size) {
+  /// Highlight rectangle for a cell, snapped to whole pixels for crisp edges.
+  Rect ringRectOf(int index) {
+    final r = rectOf(index).deflate(ringInset);
+    return Rect.fromLTRB(r.left.roundToDouble(), r.top.roundToDouble(), r.right.roundToDouble(),
+        r.bottom.roundToDouble());
+  }
+
+  static final Map<String, double> _emCache = {};
+
+  /// Width of the widest word per 1px of font size.
+  static double _em(List<String> words) {
+    final key = words.join(',');
+    return _emCache.putIfAbsent(key, () {
+      var widest = 0.0;
+      for (final w in words) {
+        final tp = TextPainter(
+          text: TextSpan(text: w, style: AppText.boardWord(100, const Color(0xFFFFFFFF))),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        )..layout();
+        widest = math.max(widest, tp.width);
+      }
+      return math.max(widest, 1) / 100;
+    });
+  }
+
+  factory BoardLayout.fit(Size box, GridSize size, List<String> words) {
+    final em = _em(words);
     final w = box.width - pad * 2;
     final h = box.height - pad * 2;
     var cellW = w / size.cols;
-    var cellH = math.min(h / size.rows, cellW * 0.62);
-    cellH = math.max(cellH, 0);
-    var font = math.min(cellH * 0.42, (cellW - 8) / (_maxChars * _charW));
+    var cellH = math.max(0.0, math.min(h / size.rows, cellW * 0.62));
+    var font = math.min(cellH * 0.42, (cellW - _textPad) / em);
     var scrolls = false;
-    if (font < _minFont) {
+    final fitAcross = (w / size.cols - _textPad) / em;
+    if (font < _minFont && fitAcross >= _minFontFitAcross) {
+      // Every column fits at a slightly smaller size: never scroll sideways,
+      // only down, so no column is ever cut off.
+      font = fitAcross;
+      cellW = w / size.cols;
+      cellH = math.max(font * 2.4, math.min(h / size.rows, cellW * 0.62));
+      scrolls = cellH * size.rows > h + 0.5;
+    } else if (font < _minFont) {
       // Too dense for the screen: keep text readable and scroll instead.
       scrolls = true;
       font = _minFont;
-      cellW = math.max(cellW, font * _maxChars * _charW + 10);
-      cellH = math.max(font * 2.3, math.min(h / size.rows, cellW * 0.62));
+      cellW = math.max(cellW, font * em + _textPad + 8);
+      cellH = math.max(font * 2.5, math.min(h / size.rows, cellW * 0.62));
     }
     font = math.min(font, 44);
     return BoardLayout._(cellW, cellH, font, scrolls, size.cols, size.rows);
@@ -71,6 +111,10 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
       AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
   BoardLayout? _layout;
 
+  /// True when the highlight just wrapped to a new row: it should appear in
+  /// place instead of sliding diagonally across the board.
+  bool _rowJump = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -89,6 +133,8 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
       _shake.forward(from: 0);
     }
     if (widget.state.activeIndex != old.state.activeIndex) {
+      final cols = widget.state.config.size.cols;
+      _rowJump = widget.state.activeIndex ~/ cols != old.state.activeIndex ~/ cols;
       WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVisible());
     }
   }
@@ -137,7 +183,8 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final s = widget.state;
     return LayoutBuilder(builder: (context, box) {
-      final layout = _layout = BoardLayout.fit(box.biggest, s.config.size);
+      final words = [for (final c in s.config.colorSet.colors) c.word[0] + c.word.substring(1).toLowerCase()];
+      final layout = _layout = BoardLayout.fit(box.biggest, s.config.size, words);
       final board = SizedBox(
         width: layout.width,
         height: layout.height,
@@ -214,19 +261,31 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-            // Gliding highlight ring.
+            // Highlight ring: glides along a row, pops in on a new row.
             if (active != null && !hidden && s.mistake == null)
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 190),
+              AnimatedPositioned.fromRect(
+                duration: _rowJump ? Duration.zero : const Duration(milliseconds: 170),
                 curve: Curves.easeOutCubic,
-                left: l.rectOf(active).left + 2,
-                top: l.rectOf(active).top + 2,
-                width: l.cellW - 4,
-                height: l.cellH - 4,
+                rect: l.ringRectOf(active),
                 child: IgnorePointer(
-                  child: AnimatedBuilder(
-                    animation: _breath,
-                    builder: (context, _) => _HighlightRing(glow: playing ? _breath.value : 0.3),
+                  child: TweenAnimationBuilder<double>(
+                    key: ValueKey('row${active ~/ l.cols}'),
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, t, child) => Opacity(
+                      opacity: t,
+                      child: Transform.scale(scale: 0.92 + 0.08 * t, child: child),
+                    ),
+                    child: AnimatedBuilder(
+                      animation: _breath,
+                      builder: (context, _) => _HighlightRing(
+                        glow: playing ? _breath.value : 0.3,
+                        radius: l.ringRadius,
+                        stroke: l.ringStroke,
+                        dense: l.dense,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -253,13 +312,13 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
             if (s.lastCorrectIndex >= 0 && !hidden)
               Positioned.fromRect(
                 key: ValueKey('burst${s.lastCorrectIndex}'),
-                rect: l.rectOf(s.lastCorrectIndex),
-                child: const IgnorePointer(child: _Burst(color: AppColors.success)),
+                rect: l.ringRectOf(s.lastCorrectIndex),
+                child: IgnorePointer(child: _Burst(color: AppColors.success, radius: l.ringRadius)),
               ),
             if (s.mistake != null)
               Positioned.fromRect(
-                rect: l.rectOf(s.mistake!.index).inflate(2),
-                child: const IgnorePointer(child: _MistakeRing()),
+                rect: l.ringRectOf(s.mistake!.index),
+                child: IgnorePointer(child: _MistakeRing(radius: l.ringRadius, stroke: l.ringStroke + 0.5)),
               ),
           ],
         ),
@@ -291,21 +350,24 @@ class _HiddenBoardVeil extends StatelessWidget {
 }
 
 class _HighlightRing extends StatelessWidget {
-  const _HighlightRing({required this.glow});
+  const _HighlightRing({required this.glow, required this.radius, required this.stroke, required this.dense});
 
   final double glow;
+  final double radius;
+  final double stroke;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.gold, width: 2.5),
-        color: AppColors.gold.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: AppColors.gold, width: stroke, strokeAlign: BorderSide.strokeAlignInside),
+        color: AppColors.gold.withValues(alpha: 0.07),
         boxShadow: [
           BoxShadow(
             color: AppColors.gold.withValues(alpha: 0.35 + 0.35 * glow),
-            blurRadius: 10 + 12 * glow,
+            blurRadius: dense ? 5 + 5 * glow : 10 + 12 * glow,
             blurStyle: BlurStyle.outer,
           ),
         ],
@@ -315,9 +377,10 @@ class _HighlightRing extends StatelessWidget {
 }
 
 class _Burst extends StatelessWidget {
-  const _Burst({required this.color});
+  const _Burst({required this.color, required this.radius});
 
   final Color color;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -328,10 +391,10 @@ class _Burst extends StatelessWidget {
       builder: (context, t, _) => Opacity(
         opacity: (1 - t).clamp(0, 1),
         child: Transform.scale(
-          scale: 0.9 + 0.25 * t,
+          scale: 0.96 + 0.06 * t,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadius.sm),
+              borderRadius: BorderRadius.circular(radius),
               border: Border.all(color: color, width: 2),
               boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 16, blurStyle: BlurStyle.outer)],
             ),
@@ -343,7 +406,10 @@ class _Burst extends StatelessWidget {
 }
 
 class _MistakeRing extends StatelessWidget {
-  const _MistakeRing();
+  const _MistakeRing({required this.radius, required this.stroke});
+
+  final double radius;
+  final double stroke;
 
   @override
   Widget build(BuildContext context) {
@@ -352,14 +418,14 @@ class _MistakeRing extends StatelessWidget {
       duration: const Duration(milliseconds: 600),
       curve: Curves.elasticOut,
       builder: (context, t, _) => Transform.scale(
-        scale: 0.8 + 0.25 * t,
+        scale: 0.85 + 0.15 * t,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
+            borderRadius: BorderRadius.circular(radius),
             color: AppColors.error.withValues(alpha: 0.10),
-            border: Border.all(color: AppColors.error, width: 3),
+            border: Border.all(color: AppColors.error, width: stroke, strokeAlign: BorderSide.strokeAlignInside),
             boxShadow: [
-              BoxShadow(color: AppColors.error.withValues(alpha: 0.7), blurRadius: 22, blurStyle: BlurStyle.outer),
+              BoxShadow(color: AppColors.error.withValues(alpha: 0.7), blurRadius: 18, blurStyle: BlurStyle.outer),
             ],
           ),
         ),
@@ -413,15 +479,18 @@ class _WordsPainter extends CustomPainter {
       final word = _titleCase(colorByKey(cell.word).word);
       final alpha = done ? 0.22 : (cell.index == mistake ? 1.0 : 1.0);
       final tp = _text(word, color.withValues(alpha: alpha), layout.font);
-      final scale = tp.width > rect.width - 8 ? (rect.width - 8) / tp.width : 1.0;
+      final maxW = rect.width - 12;
+      final scale = tp.width > maxW ? maxW / tp.width : 1.0;
       canvas.save();
       canvas.translate(rect.center.dx, rect.center.dy);
       canvas.scale(scale);
       tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
       canvas.restore();
 
-      if (done) {
-        final s = math.max(5.0, layout.font * 0.28);
+      final free = (rect.width - tp.width * scale) / 2;
+      final checkSize = math.max(5.0, layout.font * 0.28);
+      if (done && free >= checkSize * 1.6 + 6) {
+        final s = checkSize;
         final o = Offset(rect.right - s - 5, rect.top + s + 4);
         final path = Path()
           ..moveTo(o.dx - s * 0.5, o.dy)

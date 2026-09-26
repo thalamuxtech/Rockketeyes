@@ -85,7 +85,7 @@ class ResultsView extends StatelessWidget {
                           extra: _ProgressRing(value: b.completion),
                         ),
                         _Tile(icon: LucideIcons.timer, label: 'Time', value: formatClock(b.elapsedMs)),
-                        _Tile(icon: LucideIcons.zap, label: 'Avg / word', value: b.correct == 0 ? '—' : '$avg ms'),
+                        _Tile(icon: LucideIcons.zap, label: 'Avg / word', value: b.correct == 0 ? '-' : '$avg ms'),
                         _Tile(icon: LucideIcons.gauge, label: 'Speed', value: '×${b.speedFactor.toStringAsFixed(2)}'),
                       ],
                     ),
@@ -106,8 +106,8 @@ class ResultsView extends StatelessWidget {
                           icon: LucideIcons.share2,
                           tooltip: 'Share score',
                           onPressed: () => SharePlus.instance.share(ShareParams(
-                            text: 'I scored $score on RocketEye (${state.config.size.label}, '
-                                '${b.correct}/${b.cells} cleared). Say the color, not the word — can you beat me?',
+                            text: 'I scored $score on Rockketeyes (${state.config.size.label}, '
+                                '${b.correct}/${b.cells} cleared). Say the color, not the word. Can you beat me?',
                           )),
                         ),
                         const SizedBox(width: AppSpace.md),
@@ -311,13 +311,13 @@ class _RankStrip extends StatelessWidget {
         ]);
       case SubmitStatus.offline:
         child = _note(LucideIcons.dumbbell,
-            state.config.rankable ? 'Practice round — saved on this device.' : 'Custom boards are practice only — saved on this device.');
+            state.config.rankable ? 'Practice round, saved on this device.' : 'Custom boards are practice only. Saved on this device.');
       case SubmitStatus.failed:
-        child = _note(LucideIcons.cloudOff, 'Couldn\'t reach Global Legends — your record is saved on this device.');
+        child = _note(LucideIcons.cloudOff, 'Couldn\'t reach Global Legends. Your record is saved on this device.');
       case SubmitStatus.done:
         final r = state.server!;
         if (!r.ranked) {
-          child = _note(LucideIcons.dumbbell, 'Practice board — not ranked.');
+          child = _note(LucideIcons.dumbbell, 'Practice board, not ranked.');
         } else if (r.review) {
           child = _note(LucideIcons.shieldAlert, 'Score submitted for review before it appears on the board.');
         } else {
@@ -365,7 +365,7 @@ class _RankTile extends StatelessWidget {
       child: Column(children: [
         Text(label, style: AppText.label(11, color: AppColors.textMuted)),
         const SizedBox(height: 4),
-        Text(rank == null ? '—' : '#$rank', style: AppText.numeric(22, color: color)),
+        Text(rank == null ? '-' : '#$rank', style: AppText.numeric(22, color: color)),
       ]),
     );
   }

@@ -49,7 +49,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _save() async {
     final name = _name.text.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (name.length < 3 || name.length > 16 || !RegExp(r'^[A-Za-z0-9_ ]+$').hasMatch(name)) {
-      setState(() => _error = '3–16 letters, numbers, spaces or _');
+      setState(() => _error = '3 to 16 letters, numbers, spaces or _');
       return;
     }
     setState(() {
@@ -63,9 +63,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (widget.welcome) context.go('/');
     } on ApiException catch (e) {
       setState(() => _error = switch (e.code) {
-            'nickname_taken' => 'That name is taken — try another.',
+            'nickname_taken' => 'That name is taken. Try another.',
             'profane' => 'Please pick a friendlier name.',
-            'invalid_nickname' => '3–16 letters, numbers, spaces or _',
+            'invalid_nickname' => '3 to 16 letters, numbers, spaces or _',
             _ => e.isNetwork ? 'Can\'t reach the server. Try again when online.' : 'Couldn\'t save (${e.code}).',
           });
     } finally {

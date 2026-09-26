@@ -81,7 +81,7 @@ class GridGenerator {
     final cols = size.cols;
     final k = colorKeys.length;
 
-    // 1. Balanced ink bag, shuffled (Fisher–Yates, high to low).
+    // 1. Balanced ink bag, shuffled (Fisher, Yates, high to low).
     final ink = List<String>.generate(n, (i) => colorKeys[i % k]);
     for (var i = n - 1; i > 0; i--) {
       final j = rng.nextInt(i + 1);

@@ -1,4 +1,4 @@
-// RocketEye Web Speech bridge.
+// Rockketeyes Web Speech bridge.
 // Continuous, interim-result speech recognition with automatic restarts,
 // plus a microphone level meter. Called from Dart via dart:js_interop.
 (function () {

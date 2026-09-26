@@ -284,7 +284,7 @@ class RoundController extends Notifier<RoundState> {
       roundId: roundId,
       offline: offline,
       phase: RoundPhase.arming,
-      notice: offline ? 'Offline — this round is practice only.' : null,
+      notice: offline ? 'You are offline. This round is practice only.' : null,
     );
 
     // 2. Microphone.
@@ -294,7 +294,7 @@ class RoundController extends Notifier<RoundState> {
       if (!ok) {
         state = state.copyWith(
           inputMode: InputMode.tap,
-          notice: 'Voice isn\'t available here — switched to tap mode (unranked).',
+          notice: 'Voice isn\'t available here, so we switched to tap mode (unranked).',
           clearRound: true,
         );
       }

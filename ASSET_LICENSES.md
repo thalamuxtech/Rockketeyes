@@ -13,8 +13,8 @@ CC0 does not require attribution. We credit the authors anyway, as good practice
 |---|---|---|---|---|---|
 | `Sora-Variable.ttf` | Sora[wght].ttf | The Sora Project Authors (sora-xor) | https://github.com/google/fonts/tree/main/ofl/sora | [SIL OFL 1.1](https://openfontlicense.org/). Text in `Sora-OFL.txt` | Renamed only |
 | `Inter-Variable.ttf` | Inter[opsz,wght].ttf (upright) | The Inter Project Authors (rsms) | https://github.com/google/fonts/tree/main/ofl/inter | [SIL OFL 1.1](https://openfontlicense.org/). Text in `Inter-OFL.txt` | Renamed only |
-| `Sora-OFL.txt` | OFL.txt | — | https://github.com/google/fonts/blob/main/ofl/sora/OFL.txt | — | Renamed only |
-| `Inter-OFL.txt` | OFL.txt | — | https://github.com/google/fonts/blob/main/ofl/inter/OFL.txt | — | Renamed only |
+| `Sora-OFL.txt` | OFL.txt | - | https://github.com/google/fonts/blob/main/ofl/sora/OFL.txt | - | Renamed only |
+| `Inter-OFL.txt` | OFL.txt | - | https://github.com/google/fonts/blob/main/ofl/inter/OFL.txt | - | Renamed only |
 
 Under the OFL, the fonts may be bundled and embedded in commercial software. The license text must stay with them, and they must not be sold on their own.
 
@@ -32,10 +32,10 @@ Every SFX went through the same steps: leading silence removed (`silenceremove`,
 
 | File | Original title | Author | Source page | License | Modifications (besides the common steps) |
 |---|---|---|---|---|---|
-| `correct.mp3` | `confirmation_001.ogg` from the "Interface Sounds" pack | Kenney (Kenney Vleugels) | https://kenney.nl/assets/interface-sounds | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Stated on the page and in the pack's License.txt. | — |
-| `wrong.mp3` | `error_005.ogg` from "Interface Sounds" | Kenney | https://kenney.nl/assets/interface-sounds | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | — |
-| `tick.mp3` | `tick_004.ogg` from "Interface Sounds" | Kenney | https://kenney.nl/assets/interface-sounds | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | — |
-| `tap.mp3` | `drop_002.ogg` from "Interface Sounds" | Kenney | https://kenney.nl/assets/interface-sounds | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | — |
+| `correct.mp3` | `confirmation_001.ogg` from the "Interface Sounds" pack | Kenney (Kenney Vleugels) | https://kenney.nl/assets/interface-sounds | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Stated on the page and in the pack's License.txt. | - |
+| `wrong.mp3` | `error_005.ogg` from "Interface Sounds" | Kenney | https://kenney.nl/assets/interface-sounds | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | - |
+| `tick.mp3` | `tick_004.ogg` from "Interface Sounds" | Kenney | https://kenney.nl/assets/interface-sounds | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | - |
+| `tap.mp3` | `drop_002.ogg` from "Interface Sounds" | Kenney | https://kenney.nl/assets/interface-sounds | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | - |
 | `go.mp3` | sfx_start_generic_lessreverb.wav | Mihacappy (Freesound) | https://freesound.org/people/Mihacappy/sounds/844143/ | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Taken from the Freesound HQ MP3 preview |
 | `finish.mp3` | GASP_Chimes_Success_4.wav | Rob_Marion (Freesound) | https://freesound.org/people/Rob_Marion/sounds/541985/ | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Taken from the Freesound HQ MP3 preview. Quiet reverb tail trimmed (1.59 s to 1.27 s). |
 | `whoosh.mp3` | Little Whoosh 3 | ch_ase (Freesound) | https://freesound.org/people/ch_ase/sounds/423798/ | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Taken from the Freesound HQ MP3 preview. About 0.5 s of leading silence and the quiet tail removed (2.47 s to 1.57 s). Gain raised by about 25 dB because the source is very quiet. |

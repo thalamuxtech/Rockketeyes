@@ -9,14 +9,14 @@ import 'core/theme/app_theme.dart';
 import 'services/audio_service.dart';
 import 'services/settings.dart';
 
-class RocketEyeApp extends ConsumerStatefulWidget {
-  const RocketEyeApp({super.key});
+class RockketeyesApp extends ConsumerStatefulWidget {
+  const RockketeyesApp({super.key});
 
   @override
-  ConsumerState<RocketEyeApp> createState() => _RocketEyeAppState();
+  ConsumerState<RockketeyesApp> createState() => _RockketeyesAppState();
 }
 
-class _RocketEyeAppState extends ConsumerState<RocketEyeApp> {
+class _RockketeyesAppState extends ConsumerState<RockketeyesApp> {
   late final GoRouter _router = buildRouter();
 
   @override
@@ -29,7 +29,7 @@ class _RocketEyeAppState extends ConsumerState<RocketEyeApp> {
   Widget build(BuildContext context) {
     final motion = ref.watch(settingsProvider.select((s) => s.motion));
     return MaterialApp.router(
-      title: 'RocketEye',
+      title: 'Rockketeyes',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       darkTheme: buildAppTheme(),

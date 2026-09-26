@@ -22,7 +22,7 @@ let shot = 0;
 
 function check(name, ok, detail = '') {
   results.push({ name, ok: !!ok, detail });
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ', ' + detail : ''}`);
 }
 
 const fakeSpeech = () => {
@@ -95,6 +95,12 @@ async function snap(page, name) {
   return file;
 }
 
+const seenText = [];
+async function collectText(page) {
+  const t = await page.evaluate(() => document.querySelector('flt-semantics-host')?.innerText || '');
+  seenText.push(t);
+}
+
 async function enableSemantics(page) {
   await page.evaluate(() => {
     const p = document.querySelector('flt-semantics-placeholder');
@@ -152,13 +158,12 @@ try {
 
   await enableSemantics(page);
   await clickButton(page, 'Next');
-  await sleep(600);
+  await sleep(900);
   await snap(page, 'onboarding-2');
   await clickButton(page, 'Next');
-  await sleep(600);
-  await clickButton(page, 'go');
-  await sleep(1200);
-  s = await state(page);
+  await sleep(900);
+  await clickButton(page, "Let's go");
+  s = await waitFor(page, (x) => x.route.startsWith('/profile'), 'profile route', 8000).catch(() => state(page));
   check('onboarding ends on profile setup', s.route.startsWith('/profile'), s.route);
 
   const nick = `E2E Pilot ${Math.floor(Math.random() * 900 + 100)}`;
@@ -198,12 +203,16 @@ try {
   check('rank returned', typeof s.round.rankAll === 'number', `all-time #${s.round.rankAll}`);
   await sleep(1300);
   await snap(page, 'r1-results');
+  await collectText(page);
 
   // Round 2: Play again, streaming transcripts, mistake = reading the word at cell 4.
   await clickButton(page, 'Play again');
   await playRound(page, { speak: '__speakStream', mistakeAt: 4, mistakeKind: 'word', gap: 450, label: 'r2' });
   s = await waitFor(page, (x) => x.round.phase === 'ending', 'ending banner r2', 8000).catch(() => state(page));
   await snap(page, 'r2-mistake-banner');
+  // Banner position is verified from this screenshot (canvas-rendered).
+
+  await collectText(page);
   s = await waitFor(page, (x) => x.round.phase === 'results', 'results r2', 15000);
   check('reading the word ends the round as a "word" mistake', s.round.mistake === 'word', s.round.mistake);
   check('score counted until the mistake', s.round.correct === 4, `${s.round.correct} correct`);
@@ -245,6 +254,7 @@ try {
   await waitFor(page, (x) => x.route.startsWith('/legends'), 'legends route', 10000);
   await sleep(2500);
   await snap(page, 'legends');
+  await collectText(page);
   const hasNick = await page.getByText(nick, { exact: false }).count();
   check('player appears on Global Legends', hasNick > 0, nick);
 
@@ -266,6 +276,32 @@ try {
   await page.evaluate(() => window.reE2E.go('/settings'));
   await sleep(1200);
   await snap(page, 'settings');
+  await collectText(page);
+
+  // About screen.
+  await page.evaluate(() => window.reE2E.go('/about'));
+  await sleep(1500);
+  await snap(page, 'about');
+  await collectText(page);
+  await page.mouse.move(640, 430);
+  await page.mouse.wheel(0, 4000);
+  await sleep(900);
+  await snap(page, 'about-bottom');
+  const dev = await page.getByText('Lukman Enegi Ismaila', { exact: false }).count();
+  check('About page credits the developer', dev > 0);
+  await collectText(page);
+
+  // Desktop 16x16: highlight across a row wrap.
+  await page.evaluate(() => window.reE2E.play('16x16', 'hard', 'voice'));
+  await playRound(page, { speak: '__speakSplit', gap: 330, mistakeAt: 17, mistakeKind: 'color', shotAt: 16, label: 'desk16' });
+  await sleep(250);
+  await snap(page, 'desk16-row-wrap');
+
+  // Standalone about page beside the app.
+  const res = await page.goto(BASE + '/about.html');
+  const aboutHtml = await page.content();
+  check('standalone about.html is served', res.ok() && aboutHtml.includes('Lukman Enegi Ismaila') && !/[—–]/.test(aboutHtml));
+  await snap(page, 'about-html');
   await ctx.close();
 
   // ---------- Mobile flow: dense 16×16 + custom size ----------
@@ -303,6 +339,8 @@ try {
   await browser.close();
 }
 
+const dashHits = seenText.filter((t) => /[—–]/.test(t));
+check('no em or en dashes in on-screen text', dashHits.length === 0, dashHits.map((t) => t.match(/.{0,30}[—–].{0,30}/)?.[0]).join(' | '));
 const relevantErrors = consoleErrors.filter((e) => !/favicon|dicebear|flagcdn|ERR_INTERNET|net::/i.test(e));
 check('no uncaught page errors', relevantErrors.length === 0, relevantErrors.slice(0, 5).join(' | '));
 const passed = results.filter((r) => r.ok).length;

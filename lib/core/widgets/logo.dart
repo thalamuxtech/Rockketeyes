@@ -5,19 +5,19 @@ import 'package:flutter/material.dart';
 import '../../features/game/domain/color_set.dart';
 import '../theme/app_theme.dart';
 
-/// The RocketEye mark: an iris of game colors around a gold pupil, slowly
+/// The Rockketeyes mark: an iris of game colors around a gold pupil, slowly
 /// rotating, with a comet-trail highlight.
-class RocketEyeLogo extends StatefulWidget {
-  const RocketEyeLogo({super.key, this.size = 120, this.animate = true});
+class RockketeyesLogo extends StatefulWidget {
+  const RockketeyesLogo({super.key, this.size = 120, this.animate = true});
 
   final double size;
   final bool animate;
 
   @override
-  State<RocketEyeLogo> createState() => _RocketEyeLogoState();
+  State<RockketeyesLogo> createState() => _RockketeyesLogoState();
 }
 
-class _RocketEyeLogoState extends State<RocketEyeLogo> with SingleTickerProviderStateMixin {
+class _RockketeyesLogoState extends State<RockketeyesLogo> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
       AnimationController(vsync: this, duration: const Duration(seconds: 24));
 
@@ -41,7 +41,7 @@ class _RocketEyeLogoState extends State<RocketEyeLogo> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'RocketEye logo',
+      label: 'Rockketeyes logo',
       image: true,
       child: RepaintBoundary(
         child: SizedBox.square(
@@ -156,7 +156,7 @@ class _LogoPainter extends CustomPainter {
   bool shouldRepaint(_LogoPainter old) => old.t != t;
 }
 
-/// "RocketEye" wordmark with a gold gradient.
+/// "Rockketeyes" wordmark with a gold gradient.
 class Wordmark extends StatelessWidget {
   const Wordmark({super.key, this.size = 40});
 
@@ -169,7 +169,7 @@ class Wordmark extends StatelessWidget {
         colors: [AppColors.text, AppColors.goldSoft, AppColors.gold],
         stops: [0.0, 0.55, 1.0],
       ).createShader(b),
-      child: Text('RocketEye', style: AppText.display(size, color: Colors.white)),
+      child: Text('Rockketeyes', style: AppText.display(size, color: Colors.white)),
     );
   }
 }

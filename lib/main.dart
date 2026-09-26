@@ -29,7 +29,7 @@ Future<void> main() async {
   await _initFirebase();
   unawaited(AudioService.instance.init());
 
-  runApp(const ProviderScope(child: RocketEyeApp()));
+  runApp(const ProviderScope(child: RockketeyesApp()));
 }
 
 Future<void> _initFirebase() async {

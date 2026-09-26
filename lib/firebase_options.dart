@@ -11,7 +11,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       default:
-        throw UnsupportedError('RocketEye supports Android and web only.');
+        throw UnsupportedError('Rockketeyes supports Android and web only.');
     }
   }
 

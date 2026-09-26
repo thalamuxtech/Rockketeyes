@@ -71,7 +71,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           _Page(
                             visual: _StroopDemo(),
                             title: 'Read the ink,\nnot the word',
-                            body: 'Every word is printed in a different color. Your brain wants to read it — '
+                            body: 'Every word is printed in a different color. Your brain wants to read it, but '
                                 'your job is to name the color of the ink.',
                           ),
                           _Page(
@@ -81,9 +81,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 'the glow jumps to the next word.',
                           ),
                           _Page(
-                            visual: RocketEyeLogo(size: 150),
+                            visual: RockketeyesLogo(size: 150),
                             title: 'One mistake\nends the run',
-                            body: 'Name a wrong color — or read the word — and the round is over. '
+                            body: 'Name a wrong color, or read the word, and the round is over. '
                                 'Clear the board fast to climb the Global Legends.',
                           ),
                         ],

@@ -55,6 +55,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               _ProfileChip(profile: profile),
                               const Spacer(),
                               GlassIconButton(
+                                icon: LucideIcons.info,
+                                tooltip: 'About',
+                                onPressed: () => context.push('/about'),
+                              ),
+                              const SizedBox(width: AppSpace.sm),
+                              GlassIconButton(
                                 icon: LucideIcons.settings,
                                 tooltip: 'Settings',
                                 onPressed: () => context.push('/settings'),
@@ -62,7 +68,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ],
                           ),
                           const Spacer(flex: 2),
-                          RocketEyeLogo(size: compact ? 132 : 164),
+                          RockketeyesLogo(size: compact ? 132 : 164),
                           const SizedBox(height: AppSpace.xl),
                           Wordmark(size: compact ? 44 : 54),
                           const SizedBox(height: AppSpace.sm),
@@ -196,9 +202,9 @@ class _StatsRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       child: Row(
         children: [
-          stat('Best score', best == 0 ? '—' : '$best', LucideIcons.crown),
+          stat('Best score', best == 0 ? '-' : '$best', LucideIcons.crown),
           stat('Rounds', '$games', LucideIcons.gamepad2),
-          stat('Last', lastScore == null ? '—' : '$lastScore', LucideIcons.history),
+          stat('Last', lastScore == null ? '-' : '$lastScore', LucideIcons.history),
         ],
       ),
     );

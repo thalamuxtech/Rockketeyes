@@ -338,7 +338,7 @@ class _Instruction extends StatelessWidget {
           TextSpan(text: hint ? 'Say the ' : 'Say the ', style: AppText.label(15, color: AppColors.textMuted)),
           TextSpan(text: 'INK COLOR', style: AppText.label(15, weight: FontWeight.w800, color: AppColors.gold)),
           TextSpan(
-            text: hint ? ' of the glowing word — not the word itself' : ', not the word',
+            text: hint ? ' of the glowing word, not the word itself' : ', not the word',
             style: AppText.label(15, color: AppColors.textMuted),
           ),
         ]),
@@ -385,7 +385,7 @@ class _MicPanel extends StatelessWidget {
               children: [
                 Text(status, style: AppText.label(14, color: err ? AppColors.error : AppColors.text)),
                 const SizedBox(height: 2),
-                Text('Speak clearly — one color at a time',
+                Text('Speak clearly, one color at a time',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppText.body(12, color: AppColors.textFaint)),
@@ -690,10 +690,7 @@ class _EndingBanner extends StatelessWidget {
             : 'Wrong color!';
     final color = cleared ? AppColors.gold : AppColors.error;
 
-    return Positioned(
-      left: 16,
-      right: 16,
-      bottom: 24,
+    return Positioned.fill(
       child: IgnorePointer(
         child: Center(
           child: TweenAnimationBuilder<double>(
@@ -721,7 +718,7 @@ class _EndingBanner extends StatelessWidget {
                       TextSpan(children: [
                         TextSpan(text: 'The ink was ', style: AppText.body(15, color: AppColors.textMuted)),
                         TextSpan(text: _t(ink!.word), style: AppText.label(15, color: ink.inkDark)),
-                        TextSpan(text: ' — you said ', style: AppText.body(15, color: AppColors.textMuted)),
+                        TextSpan(text: '. You said ', style: AppText.body(15, color: AppColors.textMuted)),
                         TextSpan(text: _t(said!.word), style: AppText.label(15, color: said.inkDark)),
                       ]),
                     ),

@@ -130,6 +130,14 @@ class SettingsScreen extends ConsumerWidget {
                   section('About', [
                     ListTile(
                       contentPadding: EdgeInsets.zero,
+                      leading: const Icon(LucideIcons.info, size: 18, color: AppColors.textMuted),
+                      title: Text('About Rockketeyes', style: AppText.label(14)),
+                      subtitle: Text('The science of the Stroop test, and who made it',
+                          style: AppText.body(12, color: AppColors.textFaint)),
+                      onTap: () => context.push('/about'),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
                       leading: const Icon(LucideIcons.circleHelp, size: 18, color: AppColors.textMuted),
                       title: Text('How to play', style: AppText.label(14)),
                       onTap: () => context.push('/onboarding?replay=1'),
@@ -138,14 +146,14 @@ class SettingsScreen extends ConsumerWidget {
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(LucideIcons.fileText, size: 18, color: AppColors.textMuted),
                       title: Text('Credits & licenses', style: AppText.label(14)),
-                      onTap: () => showLicensePage(context: context, applicationName: 'RocketEye'),
+                      onTap: () => showLicensePage(context: context, applicationName: 'Rockketeyes'),
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(LucideIcons.lock, size: 18, color: AppColors.textMuted),
                       title: Text('Privacy', style: AppText.label(14)),
                       subtitle: Text(
-                          'Voice is processed by your device or browser speech service and never stored by RocketEye.',
+                          'Voice is processed by your device or browser speech service and never stored by Rockketeyes.',
                           style: AppText.body(12, color: AppColors.textFaint)),
                     ),
                   ]),

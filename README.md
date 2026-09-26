@@ -1,4 +1,4 @@
-# RocketEye
+# Rockketeyes
 
 **Say the color, not the word.** A premium voice-controlled Stroop challenge for Android and the web, with Global Legends leaderboards.
 
@@ -97,6 +97,6 @@ flutter build web --release --dart-define=RE_EMULATOR=true --dart-define=RE_E2E=
   storeFile=/absolute/path/to/upload-keystore.jks
   ```
 - `flutter build appbundle --release --obfuscate --split-debug-info=build/symbols`
-- Play Console → Data safety: speech is processed by the device's speech service and is not stored by RocketEye. Nickname, country and scores are collected for leaderboards under an anonymous account ID. The privacy policy is served at `/privacy.html`.
+- Play Console → Data safety: speech is processed by the device's speech service and is not stored by Rockketeyes. Nickname, country and scores are collected for leaderboards under an anonymous account ID. The privacy policy is served at `/privacy.html`.
 
 Asset credits and licenses are listed in [ASSET_LICENSES.md](ASSET_LICENSES.md).

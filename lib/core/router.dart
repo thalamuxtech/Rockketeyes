@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/about/about_screen.dart';
 import '../features/game/application/game_config.dart';
 import '../features/game/presentation/game_screen.dart';
 import '../features/home/home_screen.dart';
@@ -57,5 +58,6 @@ GoRouter buildRouter() => GoRouter(
           pageBuilder: (c, s) => _fade(s, ProfileScreen(welcome: s.uri.queryParameters['welcome'] == '1')),
         ),
         GoRoute(path: '/settings', pageBuilder: (c, s) => _fade(s, const SettingsScreen())),
+        GoRoute(path: '/about', pageBuilder: (c, s) => _fade(s, const AboutScreen())),
       ],
     );
