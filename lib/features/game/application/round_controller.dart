@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/api_client.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/local_store.dart';
+import '../../../services/profile.dart';
 import '../../../services/settings.dart';
 import '../domain/grid.dart';
 import '../domain/scoring.dart';
@@ -293,6 +294,11 @@ class RoundController extends Notifier<RoundState> {
     if (group != null) {
       seed = group.seed;
     } else {
+      // Make sure the player is signed in before asking for a ranked seed.
+      try {
+        await ref.read(profileProvider.future).timeout(const Duration(seconds: 30));
+      } catch (_) {}
+      if (gen != _generation) return;
       try {
         final res = await ApiClient.instance.post('/round/start', {
           'cols': config.size.cols,
