@@ -70,27 +70,31 @@ class _NebulaBackgroundState extends State<NebulaBackground>
     });
   }
 
-  /// Times the first frames with the shader; falls back if they're too slow.
+  /// Measures real GPU raster time once the shader is warm; if the median
+  /// frame is far too slow (e.g. a browser without GPU acceleration), every
+  /// backdrop switches to the gradient.
   void _probeSpeed() {
     if (_probed) return;
     _probed = true;
-    final sw = Stopwatch()..start();
-    var frames = 0;
-    void onFrame(Duration _) {
-      frames++;
-      if (!mounted) return;
-      if (frames < 4) {
-        WidgetsBinding.instance.addPostFrameCallback(onFrame);
-        WidgetsBinding.instance.scheduleFrame();
-        return;
+    final samples = <int>[];
+    var seen = 0;
+    late final TimingsCallback cb;
+    cb = (List<FrameTiming> timings) {
+      for (final t in timings) {
+        seen++;
+        if (seen <= 6) continue; // shader compile + warm-up frames
+        samples.add(t.rasterDuration.inMilliseconds);
       }
-      final avgMs = sw.elapsedMilliseconds / frames;
-      if (avgMs > 90) {
+      if (samples.length < 10) return;
+      SchedulerBinding.instance.removeTimingsCallback(cb);
+      samples.sort();
+      final median = samples[samples.length ~/ 2];
+      if (median > 60 && mounted) {
         NebulaBackground._tooSlow = true;
         setState(() => _shader = null);
       }
-    }
-    WidgetsBinding.instance.addPostFrameCallback(onFrame);
+    };
+    SchedulerBinding.instance.addTimingsCallback(cb);
   }
 
   static bool _probed = false;

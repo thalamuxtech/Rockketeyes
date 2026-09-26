@@ -108,7 +108,7 @@ vec3 galaxy(vec2 p, vec2 c, float scale, float t) {
   vec3 col = armCol * armLight * 0.95 * (1.0 - 0.55 * dust * disc);
   float hii = smoothstep(0.78, 0.95, fbm(g * 22.0 + 7.0)) * pow(arms, 2.0) * disc;
   col += vec3(1.0, 0.35, 0.55) * hii * 0.8;
-  col += vec3(1.0, 0.86, 0.60) * (exp(-r * r * 90.0) * 1.1 + exp(-r * 11.0) * 0.35);
+  col += vec3(1.0, 0.86, 0.60) * (exp(-r * r * 90.0) * 0.75 + exp(-r * 11.0) * 0.28);
   return col;
 }
 
@@ -183,8 +183,10 @@ void main() {
 
   // Where the place sits; we approach it while it drifts past.
   float side = hash11(seg * 3.1 + 0.2) > 0.5 ? 1.0 : -1.0;
-  vec2 placePos = vec2(side * mix(0.35, -0.15, prog) * aspect * 0.6, mix(-0.12, 0.06, prog) + (hash11(seg * 7.7) - 0.5) * 0.15);
-  float approach = mix(0.8, 1.35, prog);
+  // Portrait phones: smaller and further off-centre so titles stay readable.
+  float pf = clamp((aspect - 0.45) / 0.9, 0.0, 1.0);
+  vec2 placePos = vec2(side * mix(0.35, -0.15, prog) * max(aspect, 0.95) * 0.6, mix(-0.12, 0.06, prog) + (hash11(seg * 7.7) - 0.5) * 0.15);
+  float approach = mix(0.8, 1.35, prog) * mix(0.7, 1.0, pf);
 
   // Black hole lensing bends the stars behind it.
   vec2 sp = p;
