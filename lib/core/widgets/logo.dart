@@ -2,11 +2,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../features/game/domain/color_set.dart';
 import '../theme/app_theme.dart';
 
-/// The Rockketeyes mark: an iris of game colors around a gold pupil, slowly
-/// rotating, with a comet-trail highlight.
+/// The Rockketeyes mark: an iris of the game's ink colors around a gold
+/// pupil, with a comet orbiting like a rocket.
+///
+/// Geometry and timing mirror `tool/brand/logo.mjs`, which generates the app
+/// icons and the web loading splash, so the mark is identical everywhere.
 class RockketeyesLogo extends StatefulWidget {
   const RockketeyesLogo({super.key, this.size = 120, this.animate = true});
 
@@ -18,18 +20,20 @@ class RockketeyesLogo extends StatefulWidget {
 }
 
 class _RockketeyesLogoState extends State<RockketeyesLogo> with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(seconds: 24));
+  // One 24 s cycle = one iris turn = ten comet orbits / pupil breaths.
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 24));
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    if (widget.animate && !reduce) {
-      _c.repeat();
-    } else {
-      _c.stop();
-    }
+  void initState() {
+    super.initState();
+    if (widget.animate) _c.repeat();
+  }
+
+  @override
+  void didUpdateWidget(RockketeyesLogo old) {
+    super.didUpdateWidget(old);
+    if (widget.animate && !_c.isAnimating) _c.repeat();
+    if (!widget.animate && _c.isAnimating) _c.stop();
   }
 
   @override
@@ -48,7 +52,7 @@ class _RockketeyesLogoState extends State<RockketeyesLogo> with SingleTickerProv
           dimension: widget.size,
           child: AnimatedBuilder(
             animation: _c,
-            builder: (context, _) => CustomPaint(painter: _LogoPainter(_c.value)),
+            builder: (context, _) => CustomPaint(painter: LogoPainter(_c.value)),
           ),
         ),
       ),
@@ -56,107 +60,214 @@ class _RockketeyesLogoState extends State<RockketeyesLogo> with SingleTickerProv
   }
 }
 
-class _LogoPainter extends CustomPainter {
-  _LogoPainter(this.t);
+/// Paints the mark on a 512-unit design grid scaled to the canvas.
+class LogoPainter extends CustomPainter {
+  LogoPainter(this.t);
 
+  /// Position in the 24 s master cycle, 0..1.
   final double t;
+
+  static const _inks = [
+    Color(0xFFFF4D5E), Color(0xFFFF9F1C), Color(0xFFFFD93D), Color(0xFF2EE59D),
+    Color(0xFF4D8DFF), Color(0xFFB57BFF), Color(0xFFFF6FCF), Color(0xFFF5F5F7),
+  ];
+
+  // Shared with tool/brand/logo.mjs.
+  static const _orbitR = 214.0, _orbitW = 3.0;
+  static const _irisR = 152.0, _irisW = 46.0, _gapDeg = 6.0;
+  static const _lensR = 126.0, _pupilR = 66.0;
+  static const _cometDeg = -38.0, _cometTailDeg = 78.0, _cometR = 11.0;
+
+  static double _rad(double d) => d * math.pi / 180;
+
+  /// CSS `cubic-bezier(.45,.05,.55,.95)` approximated by an ease-in-out sine.
+  static double _ease(double x) => -(math.cos(math.pi * x) - 1) / 2;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final r = size.width / 2;
+    final k = size.width / 512;
+    canvas.save();
+    canvas.scale(k);
+    const c = Offset(256, 256);
 
-    // Outer glow.
+    final spin = t * 2 * math.pi;
+    final sub = (t * 10) % 1.0; // 2.4 s sub-cycle
+    final orbit = _ease(sub) * 2 * math.pi;
+    final breath = 1 + 0.06 * math.sin(sub * math.pi);
+    final glow = 0.55 + 0.45 * math.sin(sub * math.pi);
+
+    // Halo.
     canvas.drawCircle(
       c,
-      r * 0.92,
+      236,
       Paint()
-        ..color = AppColors.violet.withValues(alpha: 0.28)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.22),
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFF7C5CFF).withValues(alpha: 0.38 * glow),
+            const Color(0xFF7C5CFF).withValues(alpha: 0),
+          ],
+          stops: const [0.55, 1],
+        ).createShader(Rect.fromCircle(center: c, radius: 236)),
     );
 
-    // Iris segments.
-    final colors = kAllColors.map((e) => e.inkDark).toList();
-    final seg = 2 * math.pi / colors.length;
-    final rot = t * 2 * math.pi;
-    final ring = Rect.fromCircle(center: c, radius: r * 0.74);
-    for (var i = 0; i < colors.length; i++) {
+    // Orbit track.
+    canvas.drawCircle(
+      c,
+      _orbitR,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _orbitW
+        ..color = Colors.white.withValues(alpha: 0.10),
+    );
+
+    // Iris underlay keeps the gaps between segments dark and crisp.
+    canvas.drawCircle(
+      c,
+      _irisR,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _irisW + 4
+        ..color = const Color(0xFF0C0A1A),
+    );
+
+    // Iris segments (rotating).
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(spin);
+    canvas.translate(-c.dx, -c.dy);
+    final irisRect = Rect.fromCircle(center: c, radius: _irisR);
+    const seg = 360 / 8;
+    for (var i = 0; i < _inks.length; i++) {
       canvas.drawArc(
-        ring,
-        rot + i * seg + 0.06,
-        seg - 0.12,
+        irisRect,
+        _rad(-90 + i * seg + _gapDeg / 2),
+        _rad(seg - _gapDeg),
         false,
         Paint()
-          ..color = colors[i]
           ..style = PaintingStyle.stroke
-          ..strokeWidth = r * 0.2
-          ..strokeCap = StrokeCap.round,
+          ..strokeWidth = _irisW
+          ..strokeCap = StrokeCap.butt
+          ..color = _inks[i],
       );
     }
-
-    // Inner dark disc.
-    canvas.drawCircle(c, r * 0.54, Paint()..color = AppColors.bgDeep);
+    // Depth shading across the ring.
+    const outer = _irisR + _irisW / 2;
     canvas.drawCircle(
       c,
-      r * 0.54,
+      _irisR,
       Paint()
-        ..color = AppColors.glassBorder
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
+        ..strokeWidth = _irisW
+        ..shader = RadialGradient(
+          colors: [
+            Colors.black.withValues(alpha: 0.42),
+            Colors.black.withValues(alpha: 0),
+            Colors.white.withValues(alpha: 0.10),
+            Colors.black.withValues(alpha: 0.30),
+          ],
+          stops: const [(_irisR - _irisW / 2) / outer, (_irisR - 6) / outer, 0.9, 1],
+        ).createShader(Rect.fromCircle(center: c, radius: outer)),
     );
+    canvas.restore();
 
-    // Gold pupil with gradient.
-    final pupil = Rect.fromCircle(center: c, radius: r * 0.3);
+    // Lens.
+    final lensRect = Rect.fromCircle(center: c, radius: _lensR);
     canvas.drawCircle(
       c,
-      r * 0.3,
-      Paint()..shader = const RadialGradient(
-        colors: [AppColors.goldSoft, AppColors.gold, AppColors.goldDeep],
-        stops: [0, 0.55, 1],
-        center: Alignment(-0.3, -0.35),
-      ).createShader(pupil),
+      _lensR,
+      Paint()
+        ..shader = const RadialGradient(
+          center: Alignment(-0.16, -0.28),
+          radius: 0.7,
+          colors: [Color(0xFF241D45), Color(0xFF0C0A1A), Color(0xFF07060F)],
+          stops: [0, 0.7, 1],
+        ).createShader(lensRect),
+    );
+    canvas.drawCircle(
+      c,
+      _lensR - 0.75,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = Colors.white.withValues(alpha: 0.14),
     );
 
-    // Rocket-trail glint orbiting the pupil.
-    final a = -rot * 2.2;
-    final glint = c + Offset(math.cos(a), math.sin(a)) * r * 0.42;
+    // Pupil (breathing).
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.scale(breath);
+    canvas.translate(-c.dx, -c.dy);
+    canvas.drawCircle(c, _pupilR + 14, Paint()..color = AppColors.gold.withValues(alpha: 0.16));
     canvas.drawCircle(
-      glint,
-      r * 0.05,
+      c,
+      _pupilR,
       Paint()
-        ..color = Colors.white
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.03),
+        ..shader = const RadialGradient(
+          center: Alignment(-0.24, -0.32),
+          radius: 0.72,
+          colors: [AppColors.goldSoft, AppColors.gold, AppColors.goldDeep],
+          stops: [0, 0.5, 1],
+        ).createShader(Rect.fromCircle(center: c, radius: _pupilR)),
     );
+    canvas.save();
+    canvas.translate(c.dx - 22, c.dy - 25);
+    canvas.rotate(_rad(-30));
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset.zero, width: 34, height: 26),
+      Paint()..color = Colors.white.withValues(alpha: 0.92),
+    );
+    canvas.restore();
+    canvas.drawCircle(c + const Offset(20, 22), 5, Paint()..color = Colors.white.withValues(alpha: 0.45));
+    canvas.restore();
+
+    // Comet (orbiting).
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(orbit);
+    canvas.translate(-c.dx, -c.dy);
+    Offset at(double deg) => c + Offset(math.cos(_rad(deg)), math.sin(_rad(deg))) * _orbitR;
+    final head = at(_cometDeg);
+    final tail = at(_cometDeg - _cometTailDeg);
     canvas.drawArc(
-      Rect.fromCircle(center: c, radius: r * 0.42),
-      a - 0.9,
-      0.9,
+      Rect.fromCircle(center: c, radius: _orbitR),
+      _rad(_cometDeg - _cometTailDeg),
+      _rad(_cometTailDeg),
       false,
       Paint()
-        ..shader = SweepGradient(
-          startAngle: a - 0.9,
-          endAngle: a,
-          colors: [Colors.white.withValues(alpha: 0), Colors.white.withValues(alpha: 0.7)],
-          transform: GradientRotation(0),
-        ).createShader(Rect.fromCircle(center: c, radius: r * 0.42))
         ..style = PaintingStyle.stroke
-        ..strokeWidth = r * 0.03
-        ..strokeCap = StrokeCap.round,
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round
+        ..shader = LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            AppColors.gold.withValues(alpha: 0),
+            AppColors.gold.withValues(alpha: 0.85),
+            const Color(0xFFFFF6DD),
+          ],
+          stops: const [0, 0.75, 1],
+        ).createShader(Rect.fromPoints(tail, head)),
     );
-
-    // Specular highlight.
     canvas.drawCircle(
-      c + Offset(-r * 0.1, -r * 0.11),
-      r * 0.07,
-      Paint()..color = Colors.white.withValues(alpha: 0.85),
+      head,
+      _cometR * 2.2,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [Colors.white, const Color(0xFFFFF1C9), AppColors.gold.withValues(alpha: 0)],
+          stops: const [0, 0.45, 1],
+        ).createShader(Rect.fromCircle(center: head, radius: _cometR * 2.2)),
     );
+    canvas.drawCircle(head, _cometR * 0.62, Paint()..color = Colors.white);
+    canvas.restore();
+
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_LogoPainter old) => old.t != t;
+  bool shouldRepaint(LogoPainter old) => old.t != t;
 }
 
-/// "Rockketeyes" wordmark with a gold gradient.
+/// "Rockketeyes" wordmark with the same gradient as the web splash.
 class Wordmark extends StatelessWidget {
   const Wordmark({super.key, this.size = 40});
 

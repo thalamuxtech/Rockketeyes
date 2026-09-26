@@ -101,19 +101,6 @@ class SettingsScreen extends ConsumerWidget {
                         s.colorblind, (v) => c.update(s.copyWith(colorblind: v))),
                     toggle('Haptics', 'Vibrate on answers', LucideIcons.vibrate, s.haptics,
                         (v) => c.update(s.copyWith(haptics: v))),
-                    const SizedBox(height: 4),
-                    Text('Motion', style: AppText.label(13, color: AppColors.textMuted)),
-                    const SizedBox(height: 8),
-                    Segmented<MotionPref>(
-                      values: MotionPref.values,
-                      selected: s.motion,
-                      labelOf: (m) => switch (m) {
-                        MotionPref.system => 'System',
-                        MotionPref.reduced => 'Reduced',
-                        MotionPref.full => 'Full',
-                      },
-                      onChanged: (m) => c.update(s.copyWith(motion: m)),
-                    ),
                     const SizedBox(height: 10),
                   ]),
                   if (Env.devTools)

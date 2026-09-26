@@ -3,15 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'audio_service.dart';
 import 'local_store.dart';
 
-enum MotionPref { system, reduced, full }
-
 class AppSettings {
   const AppSettings({
     this.musicVolume = 0.55,
     this.sfxVolume = 0.8,
     this.playMusic = PlayMusicLevel.low,
     this.haptics = true,
-    this.motion = MotionPref.system,
     this.colorblind = false,
     this.onboarded = false,
     this.showSimulator = true,
@@ -21,7 +18,6 @@ class AppSettings {
   final double sfxVolume;
   final PlayMusicLevel playMusic;
   final bool haptics;
-  final MotionPref motion;
   final bool colorblind;
   final bool onboarded;
   final bool showSimulator;
@@ -31,7 +27,6 @@ class AppSettings {
     double? sfxVolume,
     PlayMusicLevel? playMusic,
     bool? haptics,
-    MotionPref? motion,
     bool? colorblind,
     bool? onboarded,
     bool? showSimulator,
@@ -41,7 +36,6 @@ class AppSettings {
         sfxVolume: sfxVolume ?? this.sfxVolume,
         playMusic: playMusic ?? this.playMusic,
         haptics: haptics ?? this.haptics,
-        motion: motion ?? this.motion,
         colorblind: colorblind ?? this.colorblind,
         onboarded: onboarded ?? this.onboarded,
         showSimulator: showSimulator ?? this.showSimulator,
@@ -59,7 +53,6 @@ class SettingsController extends Notifier<AppSettings> {
       playMusic: PlayMusicLevel.values.asNameMap()[_store.get<String>('playMusic')] ??
           PlayMusicLevel.low,
       haptics: _store.get<bool>('haptics') ?? true,
-      motion: MotionPref.values.asNameMap()[_store.get<String>('motion')] ?? MotionPref.system,
       colorblind: _store.get<bool>('colorblind') ?? false,
       onboarded: _store.get<bool>('onboarded') ?? false,
       showSimulator: _store.get<bool>('showSimulator') ?? true,
@@ -79,7 +72,6 @@ class SettingsController extends Notifier<AppSettings> {
       _store.set('sfxVolume', next.sfxVolume),
       _store.set('playMusic', next.playMusic.name),
       _store.set('haptics', next.haptics),
-      _store.set('motion', next.motion.name),
       _store.set('colorblind', next.colorblind),
       _store.set('onboarded', next.onboarded),
       _store.set('showSimulator', next.showSimulator),

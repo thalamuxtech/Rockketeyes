@@ -88,7 +88,7 @@ flutter build web --release --dart-define=RE_EMULATOR=true --dart-define=RE_E2E=
 
 ## Android release (Google Play)
 
-- Application ID: `com.rocketeye.app`
+- Application ID: `com.rockketeyes.app`
 - Create an upload keystore and `android/key.properties` (git-ignored):
   ```
   storePassword=…

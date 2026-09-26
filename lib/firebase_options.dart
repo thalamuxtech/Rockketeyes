@@ -27,7 +27,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCa40atiqCQskGaztLVy49hW1mYQhqki84',
-    appId: '1:685148954018:android:65c784c98373b3df8ee6fb',
+    appId: '1:685148954018:android:3d7a2da208c754398ee6fb',
     messagingSenderId: '685148954018',
     projectId: 'rockketeyes',
     storageBucket: 'rockketeyes.firebasestorage.app',

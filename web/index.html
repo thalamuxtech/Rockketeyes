@@ -23,39 +23,99 @@
   <title>Rockketeyes | Say the color, not the word</title>
   <link rel="manifest" href="manifest.json">
 
+  <link rel="preload" href="assets/assets/fonts/Sora-Variable.ttf" as="font" type="font/ttf" crossorigin>
   <style>
+    @font-face { font-family: "Sora"; src: url("assets/assets/fonts/Sora-Variable.ttf") format("truetype"); font-weight: 100 800; font-display: swap; }
     html, body { margin: 0; height: 100%; background: #07060F; }
     #re-splash {
       position: fixed; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 22px;
-      background: radial-gradient(1200px 700px at 50% 30%, #1b1535 0%, #07060F 70%);
+      align-items: center; justify-content: center; gap: 18px;
+      background: radial-gradient(900px 600px at 50% 38%, #1d1640 0%, #0c0a1c 45%, #07060F 75%);
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #F4F2FF;
-      transition: opacity .45s ease;
+      transition: opacity .5s ease, transform .5s ease;
     }
-    #re-splash.hide { opacity: 0; pointer-events: none; }
-    .re-iris {
-      width: 96px; height: 96px; border-radius: 50%;
-      background: conic-gradient(#FF4D5E 0 12.5%, #4D8DFF 0 25%, #2EE59D 0 37.5%, #FFD93D 0 50%,
-        #FF9F1C 0 62.5%, #B57BFF 0 75%, #FF6FCF 0 87.5%, #F5F5F7 0);
-      display: grid; place-items: center; animation: re-spin 6s linear infinite;
-      box-shadow: 0 0 60px rgba(124, 92, 255, .45);
-    }
-    .re-iris::after {
-      content: ""; width: 60px; height: 60px; border-radius: 50%;
-      background: radial-gradient(circle at 40% 38%, #FFE3A3 0 10%, #F5B83D 30%, #D9951E 58%, #07060F 60%);
-    }
-    .re-title { font-size: 28px; font-weight: 800; letter-spacing: -.5px;
-      background: linear-gradient(90deg, #F4F2FF, #FFE3A3, #F5B83D); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .re-sub { font-size: 14px; color: #A9A5C4; }
-    @keyframes re-spin { to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .re-iris { animation: none; } }
+    #re-splash.hide { opacity: 0; transform: scale(1.04); pointer-events: none; }
+    .re-logo { width: 148px; height: 148px; filter: drop-shadow(0 12px 40px rgba(124, 92, 255, .35)); }
+    .re-title { font-family: "Sora", system-ui, sans-serif; font-size: 34px; font-weight: 800; letter-spacing: -.8px; margin-top: 4px;
+      background: linear-gradient(90deg, #F4F2FF 0%, #FFE3A3 55%, #F5B83D 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .re-sub { font-size: 14px; color: #A9A5C4; letter-spacing: .2px; margin-top: -8px; }
+    .re-bar { width: 132px; height: 3px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 10px; }
+    .re-bar::after { content: ""; display: block; width: 40%; height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, rgba(245,184,61,0), #F5B83D, #FFE3A3);
+      animation: re-load 1.2s cubic-bezier(.45,.05,.55,.95) infinite; }
+    @keyframes re-load { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    @keyframes re-in { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+    #re-splash > * { animation: re-in .6s cubic-bezier(.2,.8,.2,1) both; }
+    #re-splash > :nth-child(2) { animation-delay: .08s; }
+    #re-splash > :nth-child(3) { animation-delay: .16s; }
+    #re-splash > :nth-child(4) { animation-delay: .24s; }
   </style>
 </head>
 <body>
-  <div id="re-splash" aria-label="Loading Rockketeyes">
-    <div class="re-iris"></div>
+  <div id="re-splash" role="status" aria-label="Loading Rockketeyes">
+    <!--LOGO-START-->
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="148" height="148" class="re-logo" aria-hidden="true">
+  
+    <style>
+      .sl-spin { transform-origin: 256px 256px; animation: sl-spin 24s linear infinite; }
+      .sl-orbit { transform-origin: 256px 256px; animation: sl-spin 2.4s cubic-bezier(.45,.05,.55,.95) infinite; }
+      .sl-pupil { transform-origin: 256px 256px; animation: sl-breathe 2.4s ease-in-out infinite; }
+      .sl-glow { animation: sl-glow 2.4s ease-in-out infinite; }
+      @keyframes sl-spin { to { transform: rotate(360deg); } }
+      @keyframes sl-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+      @keyframes sl-glow { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { .sl-spin, .sl-orbit, .sl-pupil, .sl-glow { animation: none; } }
+    </style>
+  <defs>
+    <radialGradient id="sl-halo" cx="50%" cy="50%" r="50%">
+      <stop offset=".55" stop-color="#7C5CFF" stop-opacity=".38"/><stop offset="1" stop-color="#7C5CFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sl-shade" gradientUnits="userSpaceOnUse" cx="256" cy="256" r="175">
+      <stop offset="0.74" stop-color="#000" stop-opacity=".42"/>
+      <stop offset="0.83" stop-color="#000" stop-opacity="0"/>
+      <stop offset=".9" stop-color="#fff" stop-opacity=".10"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".30"/>
+    </radialGradient>
+    <radialGradient id="sl-lens" cx="42%" cy="36%" r="70%">
+      <stop offset="0" stop-color="#241D45"/><stop offset=".7" stop-color="#0C0A1A"/><stop offset="1" stop-color="#07060F"/>
+    </radialGradient>
+    <radialGradient id="sl-pupil" cx="38%" cy="34%" r="72%">
+      <stop offset="0" stop-color="#FFE3A3"/><stop offset=".5" stop-color="#F5B83D"/><stop offset="1" stop-color="#D9951E"/>
+    </radialGradient>
+    <linearGradient id="sl-tail" gradientUnits="userSpaceOnUse" x1="162.19" y1="63.66" x2="424.63" y2="124.25">
+      <stop offset="0" stop-color="#F5B83D" stop-opacity="0"/><stop offset=".75" stop-color="#F5B83D" stop-opacity=".85"/><stop offset="1" stop-color="#FFF6DD"/>
+    </linearGradient>
+    <radialGradient id="sl-head" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset=".45" stop-color="#FFF1C9"/><stop offset="1" stop-color="#F5B83D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g transform="translate(256 256) scale(1) translate(-256 -256)">
+    <circle class="sl-glow" cx="256" cy="256" r="236" fill="url(#sl-halo)"/>
+    <circle cx="256" cy="256" r="214" fill="none" stroke="#FFFFFF" stroke-opacity=".10" stroke-width="3"/>
+    <circle cx="256" cy="256" r="152" fill="none" stroke="#0C0A1A" stroke-width="50"/>
+    <g class="sl-spin"><path d="M263.96 104.21 A152 152 0 0 1 357.71 143.04" stroke="#FF4D5E" stroke-width="46" fill="none"/><path d="M368.96 154.29 A152 152 0 0 1 407.79 248.04" stroke="#FF9F1C" stroke-width="46" fill="none"/><path d="M407.79 263.96 A152 152 0 0 1 368.96 357.71" stroke="#FFD93D" stroke-width="46" fill="none"/><path d="M357.71 368.96 A152 152 0 0 1 263.96 407.79" stroke="#2EE59D" stroke-width="46" fill="none"/><path d="M248.04 407.79 A152 152 0 0 1 154.29 368.96" stroke="#4D8DFF" stroke-width="46" fill="none"/><path d="M143.04 357.71 A152 152 0 0 1 104.21 263.96" stroke="#B57BFF" stroke-width="46" fill="none"/><path d="M104.21 248.04 A152 152 0 0 1 143.04 154.29" stroke="#FF6FCF" stroke-width="46" fill="none"/><path d="M154.29 143.04 A152 152 0 0 1 248.04 104.21" stroke="#F5F5F7" stroke-width="46" fill="none"/>
+      <circle cx="256" cy="256" r="152" fill="none" stroke="url(#sl-shade)" stroke-width="46"/>
+    </g>
+    <circle cx="256" cy="256" r="126" fill="url(#sl-lens)"/>
+    <circle cx="256" cy="256" r="125.25" fill="none" stroke="#FFFFFF" stroke-opacity=".14" stroke-width="1.5"/>
+    <g class="sl-pupil">
+      <circle cx="256" cy="256" r="80" fill="#F5B83D" fill-opacity=".16"/>
+      <circle cx="256" cy="256" r="66" fill="url(#sl-pupil)"/>
+      <ellipse cx="234" cy="231" rx="17" ry="13" fill="#FFFFFF" fill-opacity=".92" transform="rotate(-30 234 231)"/>
+      <circle cx="276" cy="278" r="5" fill="#FFFFFF" fill-opacity=".45"/>
+    </g>
+    <g class="sl-orbit">
+      <path d="M162.19 63.66 A214 214 0 0 1 424.63 124.25" stroke="url(#sl-tail)" stroke-width="7" stroke-linecap="round" fill="none"/>
+      <circle cx="424.63" cy="124.25" r="24.200000000000003" fill="url(#sl-head)"/>
+      <circle cx="424.63" cy="124.25" r="6.82" fill="#FFFFFF"/>
+    </g>
+  </g>
+</svg>
+    <!--LOGO-END-->
     <div class="re-title">Rockketeyes</div>
     <div class="re-sub">Say the color, not the word</div>
+    <div class="re-bar"></div>
   </div>
   <script src="speech_bridge.js"></script>
   <script>

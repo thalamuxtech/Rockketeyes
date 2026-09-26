@@ -7,7 +7,6 @@ import 'core/env.dart';
 import 'core/router.dart';
 import 'core/theme/app_theme.dart';
 import 'services/audio_service.dart';
-import 'services/settings.dart';
 
 class RockketeyesApp extends ConsumerStatefulWidget {
   const RockketeyesApp({super.key});
@@ -27,7 +26,6 @@ class _RockketeyesAppState extends ConsumerState<RockketeyesApp> {
 
   @override
   Widget build(BuildContext context) {
-    final motion = ref.watch(settingsProvider.select((s) => s.motion));
     return MaterialApp.router(
       title: 'Rockketeyes',
       debugShowCheckedModeBanner: false,
@@ -37,18 +35,13 @@ class _RockketeyesAppState extends ConsumerState<RockketeyesApp> {
       routerConfig: _router,
       builder: (context, child) {
         final mq = MediaQuery.of(context);
-        final disable = switch (motion) {
-          MotionPref.system => mq.disableAnimations,
-          MotionPref.reduced => true,
-          MotionPref.full => false,
-        };
         // Browsers need a gesture before audio can start.
         return Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: (_) => AudioService.instance.unlock(),
           child: MediaQuery(
             data: mq.copyWith(
-              disableAnimations: disable,
+              disableAnimations: false, // Rockketeyes always plays its full animations.
               textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3),
             ),
             child: child!,
