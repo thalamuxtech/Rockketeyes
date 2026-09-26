@@ -9,6 +9,7 @@ import '../../features/game/application/round_controller.dart';
 import '../../features/game/domain/color_set.dart';
 import '../../features/game/domain/grid.dart';
 import '../../features/group/host_screen.dart' show currentHostedRoom;
+import '../widgets/nebula_background.dart';
 
 void install(GoRouter router, {required Future<Object?> Function() connectGoogle}) {
   final api = JSObject();
@@ -71,6 +72,7 @@ void install(GoRouter router, {required Future<Object?> Function() connectGoogle
   );
 
   api.setProperty('go'.toJS, ((JSString path) => router.go(path.toDart)).toJS);
+  api.setProperty('bgTime'.toJS, ((JSNumber s) => NebulaBackground.jumpTo(s.toDartDouble)).toJS);
 
   api.setProperty(
     'play'.toJS,

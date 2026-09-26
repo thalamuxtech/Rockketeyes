@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/avatar/avatar_spec.dart';
 import '../core/env.dart';
@@ -185,17 +186,20 @@ class ProfileController extends AsyncNotifier<Profile> {
     final user = auth.currentUser ?? await _ensureUser();
     if (user == null) throw FirebaseAuthException(code: 'network-request-failed', message: 'Offline');
     var switched = false;
+    AuthCredential? nativeCred;
     try {
       if (Env.useEmulator && Env.e2e) {
         await user.linkWithCredential(_emulatorGoogleCredential());
       } else if (kIsWeb) {
         await user.linkWithPopup(GoogleAuthProvider());
       } else {
-        await user.linkWithProvider(GoogleAuthProvider());
+        // Native account picker: no browser hand-off, so no lost state.
+        nativeCred = await _nativeGoogleCredential();
+        await user.linkWithCredential(nativeCred);
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'credential-already-in-use' || e.code == 'email-already-in-use') {
-        final cred = e.credential;
+        final cred = e.credential ?? nativeCred;
         if (cred != null) {
           await auth.signInWithCredential(cred);
         } else if (kIsWeb) {
@@ -222,6 +226,23 @@ class ProfileController extends AsyncNotifier<Profile> {
     return GoogleConnectResult(switchedAccount: switched, claimed: claimed);
   }
 
+  static bool _googleReady = false;
+
+  /// Google ID token from the Android account picker (Credential Manager).
+  static Future<AuthCredential> _nativeGoogleCredential() async {
+    final gs = GoogleSignIn.instance;
+    if (!_googleReady) {
+      await gs.initialize(serverClientId: Env.googleServerClientId);
+      _googleReady = true;
+    }
+    final account = await gs.authenticate();
+    final idToken = account.authentication.idToken;
+    if (idToken == null) {
+      throw FirebaseAuthException(code: 'missing-id-token', message: 'Google did not return an ID token.');
+    }
+    return GoogleAuthProvider.credential(idToken: idToken);
+  }
+
   /// Auth emulator accepts unsigned Google ID tokens (E2E tests only).
   static int _fakeGoogleCounter = 0;
   static AuthCredential _emulatorGoogleCredential() {
@@ -232,6 +253,11 @@ class ProfileController extends AsyncNotifier<Profile> {
   }
 
   Future<void> signOut() async {
+    if (!kIsWeb && _googleReady) {
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
+    }
     await FirebaseAuth.instance.signOut();
     await _store.set('registered', false);
     await _store.set('nickname', '');

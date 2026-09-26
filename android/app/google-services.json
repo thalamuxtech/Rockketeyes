@@ -12,7 +12,20 @@
           "package_name": "com.rockketeyes.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "685148954018-f3sc52aftn72ao0htiijqvjhqd3poieo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rockketeyes.app",
+            "certificate_hash": "9fd1d8180fe0285ab14f55833cbda32771bd4577"
+          }
+        },
+        {
+          "client_id": "685148954018-l62kig231ki9b7kkl1q7mmd0jkvahjpa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCa40atiqCQskGaztLVy49hW1mYQhqki84"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "685148954018-l62kig231ki9b7kkl1q7mmd0jkvahjpa.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

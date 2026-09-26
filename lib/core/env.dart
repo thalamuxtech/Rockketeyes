@@ -36,5 +36,10 @@ abstract final class Env {
     return kIsWeb ? '/api' : 'https://rockketeyes.web.app/api';
   }
 
+  /// OAuth web client ID (from google-services.json, client_type 3); the
+  /// native Android Google picker needs it to issue a Firebase ID token.
+  static const String googleServerClientId =
+      '685148954018-l62kig231ki9b7kkl1q7mmd0jkvahjpa.apps.googleusercontent.com';
+
   static const String privacyUrl = 'https://rockketeyes.web.app/privacy.html';
 }

@@ -50,6 +50,7 @@ dependencies:
   qr_flutter: ^4.1.0
   flutter_web_plugins:
     sdk: flutter
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:

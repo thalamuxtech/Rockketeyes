@@ -5,7 +5,8 @@ import 'package:flutter/scheduler.dart';
 
 import '../theme/app_theme.dart';
 
-/// Animated cosmic backdrop driven by `shaders/nebula.frag`.
+/// Animated galaxy backdrop driven by `shaders/nebula.frag`: spiral galaxy,
+/// parallax starfield, shooting stars, comets and nebula gas.
 ///
 /// Falls back to a static gradient while the shader loads, if it fails to
 /// compile, or when the platform asks for reduced motion.
@@ -19,6 +20,13 @@ class NebulaBackground extends StatefulWidget {
   final Widget? child;
 
   static Future<ui.FragmentProgram?>? _loading;
+
+  /// Seconds added to the animation clock (tests jump to specific scenes).
+  static double timeOffset = 0;
+  static double? _jump;
+
+  /// Jump every backdrop to animation second [t] (previews and tests).
+  static void jumpTo(double t) => _jump = t;
 
   static Future<ui.FragmentProgram?> _load() => _loading ??= ui.FragmentProgram
           .fromAsset('shaders/nebula.frag')
@@ -47,10 +55,16 @@ class _NebulaBackgroundState extends State<NebulaBackground>
   }
 
   void _onTick(Duration elapsed) {
-    // ~20 fps is plenty for a slow nebula and keeps GPU cost low.
-    if (elapsed - _lastFrame < const Duration(milliseconds: 50)) return;
+    // ~30 fps keeps shooting stars fluid while keeping GPU cost modest.
+    if (elapsed - _lastFrame < const Duration(milliseconds: 33)) return;
     _lastFrame = elapsed;
-    _time.value = elapsed.inMilliseconds / 1000.0;
+    final secs = elapsed.inMilliseconds / 1000.0;
+    final jump = NebulaBackground._jump;
+    if (jump != null) {
+      NebulaBackground.timeOffset = jump - secs;
+      NebulaBackground._jump = null;
+    }
+    _time.value = secs + NebulaBackground.timeOffset;
   }
 
   @override

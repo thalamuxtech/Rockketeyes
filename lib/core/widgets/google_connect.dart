@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../services/profile.dart';
@@ -32,6 +33,12 @@ Future<bool> connectGoogleFlow(BuildContext context, WidgetRef ref) async {
       _ => 'Could not connect Google (${e.code}).',
     };
     if (msg != null) showToast(context, msg, icon: Icons.error_outline_rounded);
+    return false;
+  } on GoogleSignInException catch (e) {
+    // Closing the account picker is not an error.
+    if (e.code != GoogleSignInExceptionCode.canceled && context.mounted) {
+      showToast(context, 'Could not connect Google (${e.code.name}).', icon: Icons.error_outline_rounded);
+    }
     return false;
   } catch (e) {
     if (context.mounted) showToast(context, 'Could not connect Google.', icon: Icons.error_outline_rounded);
