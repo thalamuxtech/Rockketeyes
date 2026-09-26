@@ -156,7 +156,7 @@ class ProfileController extends AsyncNotifier<Profile> {
       'nickname': nickname,
       'avatarSeed': avatarSeed,
       'country': country,
-    });
+    }, retry: true);
     final p = (res['profile'] as Map?)?.cast<String, dynamic>() ?? {};
     final next = current.copyWith(
       nickname: (p['nickname'] as String?) ?? nickname,
@@ -212,7 +212,7 @@ class ProfileController extends AsyncNotifier<Profile> {
     await auth.currentUser?.getIdToken(true);
     var claimed = 0;
     try {
-      final res = await ApiClient.instance.post('/legends/claim', {});
+      final res = await ApiClient.instance.post('/legends/claim', {}, retry: true);
       claimed = (res['claimed'] as num?)?.toInt() ?? 0;
     } catch (e) {
       debugPrint('claim failed: $e');

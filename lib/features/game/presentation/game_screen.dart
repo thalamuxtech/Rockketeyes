@@ -120,6 +120,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         child: Scaffold(
           body: NebulaBackground(
             intensity: 0.55,
+            animate: s.phase != RoundPhase.playing,
             child: SafeArea(
               child: Stack(
                 children: [
@@ -186,6 +187,7 @@ class _Hud extends StatelessWidget {
     final total = state.cells.length;
     final done = state.events.where((e) => e.correct).length;
     return GlassPanel(
+      blur: kGameBlur,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       radius: AppRadius.md + 4,
       child: Row(
@@ -383,6 +385,7 @@ class _MicPanel extends StatelessWidget {
       _ => 'Stopped',
     };
     return GlassPanel(
+      blur: kGameBlur,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       radius: AppRadius.md + 4,
       child: Row(
@@ -484,6 +487,7 @@ class _TapPad extends StatelessWidget {
     final colors = state.config.colorSet.colors;
     final enabled = state.phase == RoundPhase.playing;
     return GlassPanel(
+      blur: kGameBlur,
       padding: const EdgeInsets.all(10),
       radius: AppRadius.md + 4,
       child: Wrap(

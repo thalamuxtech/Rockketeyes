@@ -151,7 +151,10 @@ async function render() {
   // Web.
   const webIcon = logoSvg({ background: 'squircle', scale: 0.8, id: 'w' });
   const maskable = logoSvg({ background: 'full', scale: 0.72, id: 'm' });
-  await png(webIcon, 64, p('web', 'favicon.png'));
+  // Favicon: the bare mark (no tile) so it stays legible at tab size.
+  const favicon = logoSvg({ scale: 1.08, id: 'fav' });
+  writeFileSync(p('web', 'favicon.svg'), favicon);
+  await png(favicon, 64, p('web', 'favicon.png'));
   await png(webIcon, 192, p('web', 'icons', 'Icon-192.png'));
   await png(webIcon, 512, p('web', 'icons', 'Icon-512.png'));
   await png(maskable, 192, p('web', 'icons', 'Icon-maskable-192.png'));
@@ -164,9 +167,9 @@ async function render() {
   const dens = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
   const res = (...x) => p('android', 'app', 'src', 'main', 'res', ...x);
   for (const [d, k] of Object.entries(dens)) {
-    await png(logoSvg({ background: 'squircle', scale: 0.8, id: 'l' }), 48 * k, res(`mipmap-${d}`, 'ic_launcher.png'));
+    await png(logoSvg({ background: 'squircle', scale: 0.86, id: 'l' }), 48 * k, res(`mipmap-${d}`, 'ic_launcher.png'));
     // Adaptive foreground: 108dp canvas, mark kept inside the 66dp safe zone.
-    await png(logoSvg({ scale: 0.6, id: 'fg' }), 108 * k, res(`mipmap-${d}`, 'ic_launcher_foreground.png'));
+    await png(logoSvg({ scale: 0.7, id: 'fg' }), 108 * k, res(`mipmap-${d}`, 'ic_launcher_foreground.png'));
     await png(logoSvg({ background: 'full', mark: false, id: 'bgl' }), 108 * k, res(`mipmap-${d}`, 'ic_launcher_background.png'));
     // Launch splash logo (Android < 12 layer-list and Android 12+ splash icon).
     await png(logoSvg({ scale: 0.62, id: 'sp' }), 160 * k, res(`drawable-${d}`, 'splash_logo.png'));

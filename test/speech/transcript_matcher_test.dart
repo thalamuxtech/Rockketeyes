@@ -52,6 +52,29 @@ void main() {
     expect(t.colorsIn('pink white red orange'), ['red']);
   });
 
+  test('Android: repeated final phrases in one session each count', () {
+    final t = m();
+    expect(t.feedPhrase('s1', 'yellow', isFinal: true).map((e) => e.color), ['yellow']);
+    expect(t.feedPhrase('s1', 'yellow', isFinal: true).map((e) => e.color), ['yellow']);
+    expect(t.feedPhrase('s1', 'red', isFinal: false).map((e) => e.color), ['red']);
+    expect(t.feedPhrase('s1', 'red', isFinal: true), isEmpty, reason: 'final repeats the partial');
+    expect(t.feedPhrase('s1', 'red', isFinal: true).map((e) => e.color), ['red']);
+  });
+
+  test('Android: a phrase that grows still counts once per word', () {
+    final t = m();
+    expect(t.feedPhrase('s', 'blue', isFinal: false).map((e) => e.color), ['blue']);
+    expect(t.feedPhrase('s', 'blue green', isFinal: false).map((e) => e.color), ['green']);
+    expect(t.feedPhrase('s', 'blue green', isFinal: true), isEmpty);
+    expect(t.feedPhrase('s', 'green', isFinal: false).map((e) => e.color), ['green']);
+  });
+
+  test('Android: a new phrase without a final result still counts', () {
+    final t = m();
+    expect(t.feedPhrase('s', 'yellow', isFinal: false).length, 1);
+    expect(t.feedPhrase('s', 'pink', isFinal: false).map((e) => e.color), ['pink']);
+  });
+
   test('non-color chatter produces nothing', () {
     expect(m().colorsIn('um okay wait what'), isEmpty);
   });

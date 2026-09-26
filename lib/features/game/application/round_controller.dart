@@ -306,7 +306,7 @@ class RoundController extends Notifier<RoundState> {
           'colorSet': config.colorSet.name,
           'congruentRatio': 0,
           'mode': config.mode.name,
-        });
+        }, retry: true);
         seed = (res['seed'] as num).toInt();
         roundId = res['roundId'] as String?;
       } catch (e) {

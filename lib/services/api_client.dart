@@ -49,10 +49,19 @@ class ApiClient {
 
   Uri _uri(String path) => Uri.parse('${Env.apiBase}$path');
 
-  Future<Map<String, dynamic>> post(String path, Map<String, Object?> body) async {
-    return _send(() async => _http
+  /// [retry]: repeat once after a network failure or server error. Only for
+  /// calls that are safe to repeat (never for score submission).
+  Future<Map<String, dynamic>> post(String path, Map<String, Object?> body, {bool retry = false}) async {
+    Future<Map<String, dynamic>> once() => _send(() async => _http
         .post(_uri(path), headers: await _headers(), body: jsonEncode(body))
         .timeout(const Duration(seconds: 15)));
+    try {
+      return await once();
+    } on ApiException catch (e) {
+      if (!retry || !(e.isNetwork || e.status >= 500)) rethrow;
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      return once();
+    }
   }
 
   Future<Map<String, dynamic>> get(String path) async {

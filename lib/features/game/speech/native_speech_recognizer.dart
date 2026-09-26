@@ -92,7 +92,9 @@ class NativeSpeechRecognizer implements ColorRecognizer {
   void _onResult(int session, SpeechRecognitionResult r) {
     final text = r.recognizedWords;
     _transcripts.add(text);
-    for (final t in _matcher?.feed('$session', text) ?? const <RecognizedToken>[]) {
+    final tokens = _matcher?.feedPhrase('$session', text, isFinal: r.finalResult) ?? const <RecognizedToken>[];
+    debugPrint('stt[$session${r.finalResult ? ' final' : ''}] "$text" -> ${tokens.map((t) => t.color).join(',')}');
+    for (final t in tokens) {
       _tokens.add(t);
     }
     if (r.finalResult && _wanted) _scheduleRestart();

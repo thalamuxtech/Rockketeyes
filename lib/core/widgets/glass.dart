@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,6 +8,10 @@ import '../../services/audio_service.dart';
 import '../theme/app_theme.dart';
 
 /// Frosted-glass surface.
+/// Blur used by game-screen panels: live blur is costly on phones while the
+/// board animates, so mobile gets a solid frosted fill instead.
+double get kGameBlur => kIsWeb ? 18 : 0;
+
 class GlassPanel extends StatelessWidget {
   const GlassPanel({
     super.key,
@@ -27,6 +32,20 @@ class GlassPanel extends StatelessWidget {
   final Color borderColor;
   final Color? glow;
 
+  Widget _surface(BorderRadius r) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: blur <= 0 ? Color.alphaBlend(fill, const Color(0xF2141026)) : fill,
+      borderRadius: r,
+      border: Border.all(color: borderColor),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0x14FFFFFF), Color(0x05FFFFFF)],
+      ),
+    ),
+    child: Padding(padding: padding, child: child),
+  );
+
   @override
   Widget build(BuildContext context) {
     final r = BorderRadius.circular(radius);
@@ -34,27 +53,18 @@ class GlassPanel extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: r,
         boxShadow: [
-          if (glow != null) BoxShadow(color: glow!, blurRadius: 32, spreadRadius: -6),
+          if (glow != null)
+            BoxShadow(color: glow!, blurRadius: 32, spreadRadius: -6),
         ],
       ),
       child: ClipRRect(
         borderRadius: r,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: fill,
-              borderRadius: r,
-              border: Border.all(color: borderColor),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0x14FFFFFF), Color(0x05FFFFFF)],
+        child: blur <= 0
+            ? _surface(r)
+            : BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                child: _surface(r),
               ),
-            ),
-            child: Padding(padding: padding, child: child),
-          ),
-        ),
       ),
     );
   }
@@ -104,7 +114,16 @@ class _GoldButtonState extends State<GoldButton> {
         else if (widget.icon != null)
           Icon(widget.icon, color: onGold, size: 22),
         if (widget.busy || widget.icon != null) const SizedBox(width: 10),
-        Text(widget.label, style: AppText.label(17, weight: FontWeight.w700, color: onGold)),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              widget.label,
+              maxLines: 1,
+              style: AppText.label(17, weight: FontWeight.w700, color: onGold),
+            ),
+          ),
+        ),
       ],
     );
 
@@ -131,10 +150,12 @@ class _GoldButtonState extends State<GoldButton> {
           child: FocusableActionDetector(
             enabled: enabled,
             actions: {
-              ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-                widget.onPressed?.call();
-                return null;
-              }),
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  widget.onPressed?.call();
+                  return null;
+                },
+              ),
             },
             child: AnimatedScale(
               scale: _pressed ? 0.97 : 1,
@@ -147,13 +168,15 @@ class _GoldButtonState extends State<GoldButton> {
                   duration: AppMotion.short,
                   curve: AppMotion.curve,
                   height: widget.height,
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   decoration: BoxDecoration(
                     gradient: AppColors.goldGradient,
                     borderRadius: BorderRadius.circular(widget.height / 2),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.gold.withValues(alpha: _hover ? 0.55 : 0.35),
+                        color: AppColors.gold.withValues(
+                          alpha: _hover ? 0.55 : 0.35,
+                        ),
                         blurRadius: _hover ? 34 : 24,
                         spreadRadius: -4,
                         offset: const Offset(0, 8),
@@ -223,26 +246,35 @@ class _GlassButtonState extends State<GlassButton> {
             child: AnimatedContainer(
               duration: AppMotion.micro,
               height: widget.height,
-              padding: const EdgeInsets.symmetric(horizontal: 22),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: _hover ? AppColors.glassFillStrong : AppColors.glassFill,
                 borderRadius: r,
                 border: Border.all(
-                    color: _hover ? AppColors.gold.withValues(alpha: 0.5) : AppColors.glassBorder),
+                  color: _hover
+                      ? AppColors.gold.withValues(alpha: 0.5)
+                      : AppColors.glassBorder,
+                ),
               ),
               child: Row(
-                mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
+                mainAxisSize: widget.expand
+                    ? MainAxisSize.max
+                    : MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (widget.icon != null) ...[
-                    Icon(widget.icon, size: 20, color: widget.color),
-                    const SizedBox(width: 10),
+                    Icon(widget.icon, size: 19, color: widget.color),
+                    const SizedBox(width: 8),
                   ],
+                  // Always show the whole label: shrink slightly on narrow phones.
                   Flexible(
-                    child: Text(
-                      widget.label,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.label(15, color: widget.color),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        style: AppText.label(15, color: widget.color),
+                      ),
                     ),
                   ),
                 ],
@@ -280,7 +312,9 @@ class GlassIconButton extends StatelessWidget {
         excludeSemantics: true,
         child: Material(
           color: AppColors.glassFill,
-          shape: const CircleBorder(side: BorderSide(color: AppColors.glassBorder)),
+          shape: const CircleBorder(
+            side: BorderSide(color: AppColors.glassBorder),
+          ),
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onPressed == null
@@ -304,7 +338,12 @@ class GlassIconButton extends StatelessWidget {
 
 /// Small rounded tag.
 class Pill extends StatelessWidget {
-  const Pill({super.key, required this.label, this.color = AppColors.gold, this.icon});
+  const Pill({
+    super.key,
+    required this.label,
+    this.color = AppColors.gold,
+    this.icon,
+  });
 
   final String label;
   final Color color;
@@ -369,7 +408,9 @@ class ChoiceChipX extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 48, minWidth: 64),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: selected ? AppColors.gold.withValues(alpha: 0.16) : AppColors.glassFill,
+              color: selected
+                  ? AppColors.gold.withValues(alpha: 0.16)
+                  : AppColors.glassFill,
               borderRadius: BorderRadius.circular(AppRadius.sm),
               border: Border.all(
                 color: selected ? AppColors.gold : AppColors.glassBorder,
@@ -380,12 +421,23 @@ class ChoiceChipX extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(label,
-                    style: AppText.label(15,
-                        weight: FontWeight.w700,
-                        color: selected ? AppColors.gold : AppColors.text)),
+                Text(
+                  label,
+                  style: AppText.label(
+                    15,
+                    weight: FontWeight.w700,
+                    color: selected ? AppColors.gold : AppColors.text,
+                  ),
+                ),
                 if (sublabel != null)
-                  Text(sublabel!, style: AppText.label(11, weight: FontWeight.w500, color: AppColors.textMuted)),
+                  Text(
+                    sublabel!,
+                    style: AppText.label(
+                      11,
+                      weight: FontWeight.w500,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -443,24 +495,37 @@ class Segmented<T> extends StatelessWidget {
                       curve: AppMotion.curve,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: v == selected ? AppColors.gold : Colors.transparent,
+                        color: v == selected
+                            ? AppColors.gold
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           if (iconOf != null) ...[
-                            Icon(iconOf!(v),
-                                size: 16,
-                                color: v == selected ? const Color(0xFF1A1206) : AppColors.textMuted),
+                            Icon(
+                              iconOf!(v),
+                              size: 16,
+                              color: v == selected
+                                  ? const Color(0xFF1A1206)
+                                  : AppColors.textMuted,
+                            ),
                             const SizedBox(width: 6),
                           ],
                           Flexible(
-                            child: Text(
-                              labelOf(v),
-                              overflow: TextOverflow.ellipsis,
-                              style: AppText.label(14,
-                                  color: v == selected ? const Color(0xFF1A1206) : AppColors.textMuted),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                labelOf(v),
+                                maxLines: 1,
+                                style: AppText.label(
+                                  14,
+                                  color: v == selected
+                                      ? const Color(0xFF1A1206)
+                                      : AppColors.textMuted,
+                                ),
+                              ),
                             ),
                           ),
                         ],

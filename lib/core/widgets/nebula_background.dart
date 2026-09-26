@@ -10,9 +10,12 @@ import '../theme/app_theme.dart';
 /// Falls back to a static gradient while the shader loads, if it fails to
 /// compile, or when the platform asks for reduced motion.
 class NebulaBackground extends StatefulWidget {
-  const NebulaBackground({super.key, this.intensity = 1.0, this.child});
+  const NebulaBackground({super.key, this.intensity = 1.0, this.animate = true, this.child});
 
   final double intensity;
+
+  /// False draws one still frame (used while playing to keep the game smooth).
+  final bool animate;
   final Widget? child;
 
   static Future<ui.FragmentProgram?>? _loading;
@@ -53,7 +56,7 @@ class _NebulaBackgroundState extends State<NebulaBackground>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduce = !widget.animate || (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
     if (reduce && _ticker.isActive) {
       _ticker.stop();
     } else if (!reduce && !_ticker.isActive) {
