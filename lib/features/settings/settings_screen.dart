@@ -75,6 +75,15 @@ class SettingsScreen extends ConsumerWidget {
                   ]),
                   const SizedBox(height: AppSpace.xl),
                   section('Sound', [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(LucideIcons.activity, size: 18, color: AppColors.gold),
+                      title: Text('Test sound and microphone', style: AppText.label(14)),
+                      subtitle: Text('Check that you can hear the game and it hears you',
+                          style: AppText.body(12, color: AppColors.textFaint)),
+                      trailing: const Icon(LucideIcons.chevronRight, size: 18, color: AppColors.textMuted),
+                      onTap: () => context.push('/check'),
+                    ),
                     slider('Music', LucideIcons.music, s.musicVolume, (v) => c.update(s.copyWith(musicVolume: v))),
                     slider('Effects', LucideIcons.volume2, s.sfxVolume, (v) => c.update(s.copyWith(sfxVolume: v))),
                     const SizedBox(height: 8),

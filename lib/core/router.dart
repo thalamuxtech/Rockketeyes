@@ -9,6 +9,7 @@ import '../features/group/join_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/legal/legal_screen.dart';
 import '../features/legends/legends_screen.dart';
+import '../features/onboarding/device_check.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/settings/settings_screen.dart';
@@ -62,6 +63,7 @@ GoRouter buildRouter() => GoRouter(
         ),
         GoRoute(path: '/settings', pageBuilder: (c, s) => _fade(s, const SettingsScreen())),
         GoRoute(path: '/about', pageBuilder: (c, s) => _fade(s, const AboutScreen())),
+        GoRoute(path: '/check', pageBuilder: (c, s) => _fade(s, const DeviceCheckScreen())),
         GoRoute(path: '/terms', pageBuilder: (c, s) => _fade(s, const LegalScreen(doc: LegalDoc.terms))),
         GoRoute(path: '/license', pageBuilder: (c, s) => _fade(s, const LegalScreen(doc: LegalDoc.license))),
         GoRoute(path: '/group', pageBuilder: (c, s) => _fade(s, const HostSetupScreen())),

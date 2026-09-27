@@ -159,6 +159,24 @@ try {
   await snap(page, 'onboarding-2');
   await clickButton(page, 'Next');
   await sleep(900);
+  await clickButton(page, 'Next');
+  await sleep(1200);
+  // Setup check: sound, voice and tap.
+  await clickButton(page, 'Play test sound');
+  await clickButton(page, 'Test microphone');
+  await sleep(1500);
+  await page.evaluate(() => window.__speakSplit('red'));
+  await sleep(500);
+  await page.evaluate(() => window.__speakSplit('blue'));
+  await sleep(700);
+  const heard = await page.getByText('Heard "blue"', { exact: false }).count();
+  check('setup check hears spoken colors', heard > 0, heard ? 'heard "red" and "blue"' : 'nothing heard');
+  await clickButton(page, 'Tap Green');
+  await clickButton(page, 'Tap Yellow');
+  await sleep(500);
+  const works = await page.getByText('Works', { exact: true }).count();
+  check('setup check confirms sound, voice and tap', works >= 3, `${works} of 3 marked Works`);
+  await snap(page, 'onboarding-check');
   await clickButton(page, "Let's go");
   s = await waitFor(page, (x) => x.route.startsWith('/profile'), 'profile route', 8000).catch(() => state(page));
   check('onboarding ends on profile setup', s.route.startsWith('/profile'), s.route);

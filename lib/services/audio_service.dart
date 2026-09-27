@@ -72,8 +72,35 @@ class AudioService {
     if (_unlocked) return;
     _unlocked = true;
     final scene = _scene ?? MusicScene.menu;
-    _scene = null;
-    setScene(scene);
+    _scene = scene;
+    // Browsers only allow audio that starts inside the user's gesture, so
+    // start the music and wake every effect player right now, not after an
+    // await or fade.
+    final track = scene == MusicScene.menu ? _menuTracks.first : _playTracks[_playIndex++ % _playTracks.length];
+    unawaited(_music.play(AssetSource(track), volume: _targetMusicVolume).catchError((Object e) {
+      debugPrint('music start blocked: $e');
+      _unlocked = false; // try again on the next tap
+    }));
+    for (final pool in _pools.values) {
+      for (final p in pool) {
+        unawaited(() async {
+          try {
+            await p.setVolume(0);
+            await p.resume();
+            await Future<void>.delayed(const Duration(milliseconds: 60));
+            await p.stop();
+          } catch (_) {}
+        }());
+      }
+    }
+  }
+
+  /// Plays a short chime (sound check in onboarding/settings).
+  void testSound() {
+    unlock();
+    sfx(Sfx.correct, pitchStep: 2);
+    Future<void>.delayed(const Duration(milliseconds: 380), () => sfx(Sfx.correct, pitchStep: 5));
+    Future<void>.delayed(const Duration(milliseconds: 760), () => sfx(Sfx.finish));
   }
 
   bool get unlocked => _unlocked;

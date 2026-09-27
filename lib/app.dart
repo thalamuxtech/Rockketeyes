@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,7 +52,12 @@ class _RockketeyesAppState extends ConsumerState<RockketeyesApp> {
         // Browsers need a gesture before audio can start.
         return Listener(
           behavior: HitTestBehavior.translucent,
-          onPointerDown: (_) => AudioService.instance.unlock(),
+          // Mouse clicks activate on press; touches only count when the finger
+          // lifts, so unlock on both.
+          onPointerDown: (e) {
+            if (e.kind == PointerDeviceKind.mouse) AudioService.instance.unlock();
+          },
+          onPointerUp: (_) => AudioService.instance.unlock(),
           child: MediaQuery(
             data: mq.copyWith(
               disableAnimations: false, // Rockketeyes always plays its full animations.

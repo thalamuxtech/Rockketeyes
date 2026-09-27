@@ -11,6 +11,7 @@ import '../../core/widgets/logo.dart';
 import '../../core/widgets/nebula_background.dart';
 import '../../services/settings.dart';
 import '../game/domain/color_set.dart';
+import 'device_check.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key, this.replay = false});
@@ -25,7 +26,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _page = PageController();
   int _index = 0;
 
-  static const _pages = 3;
+  static const _pages = 4;
 
   Future<void> _finish() async {
     final s = ref.read(settingsProvider);
@@ -86,6 +87,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             body: 'Name a wrong color, or read the word, and the round is over. '
                                 'Clear the board fast to climb the Global Legends.',
                           ),
+                          _CheckPage(),
                         ],
                       ),
                     ),
@@ -281,6 +283,30 @@ class _MicDemoState extends State<_MicDemo> with SingleTickerProviderStateMixin 
             ),
             child: const Icon(LucideIcons.mic, size: 40, color: Color(0xFF1A1206)),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Final onboarding step: try sound, voice and tap before the first round.
+class _CheckPage extends StatelessWidget {
+  const _CheckPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: AppSpace.lg),
+          Text('Check your setup', textAlign: TextAlign.center, style: AppText.display(30)),
+          const SizedBox(height: AppSpace.sm),
+          Text('Make sure you can hear the game and that it hears you.',
+              textAlign: TextAlign.center, style: AppText.body(15, color: AppColors.textMuted)),
+          const SizedBox(height: AppSpace.xl),
+          const DeviceCheckPanel(),
+          const SizedBox(height: AppSpace.lg),
         ],
       ),
     );
