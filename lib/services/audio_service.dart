@@ -34,6 +34,7 @@ class AudioService {
   final Map<Sfx, int> _next = {};
 
   bool _unlocked = false;
+  AudioPlayer? _probe;
   bool _initialised = false;
   double musicVolume = 0.55;
   double sfxVolume = 0.8;
@@ -46,6 +47,7 @@ class AudioService {
   Future<void> init() async {
     if (_initialised) return;
     _initialised = true;
+    AudioLogger.logLevel = AudioLogLevel.info; // surface playback errors in logs
     try {
       await AudioPlayer.global.setAudioContext(AudioContextConfig(
         focus: AudioContextConfigFocus.mixWithOthers,
@@ -56,8 +58,9 @@ class AudioService {
       final size = s == Sfx.correct || s == Sfx.tap || s == Sfx.wrong ? 3 : 1;
       _pools[s] = [
         for (var i = 0; i < size; i++)
-          AudioPlayer(playerId: 'sfx_${s.name}_$i')..setPlayerMode(
-              kIsWeb ? PlayerMode.mediaPlayer : PlayerMode.lowLatency),
+          // Standard players everywhere: Android's low-latency SoundPool mode
+          // can fail silently on some devices.
+          AudioPlayer(playerId: 'sfx_${s.name}_$i')..setPlayerMode(PlayerMode.mediaPlayer),
       ];
       _next[s] = 0;
       for (final p in _pools[s]!) {
@@ -95,12 +98,25 @@ class AudioService {
     }
   }
 
-  /// Plays a short chime (sound check in onboarding/settings).
-  void testSound() {
+  /// Plays a short chime on a fresh player at full effect volume, and makes
+  /// sure the music is running (sound check in onboarding/settings).
+  Future<void> testSound() async {
     unlock();
-    sfx(Sfx.correct, pitchStep: 2);
-    Future<void>.delayed(const Duration(milliseconds: 380), () => sfx(Sfx.correct, pitchStep: 5));
-    Future<void>.delayed(const Duration(milliseconds: 760), () => sfx(Sfx.finish));
+    // One reusable player: re-creating players with the same id is ignored.
+    final probe = _probe ??= AudioPlayer(playerId: 'sound_check')..setReleaseMode(ReleaseMode.stop);
+    try {
+      await probe.stop();
+      await probe.play(AssetSource('audio/sfx/finish.mp3'), volume: math.max(sfxVolume, 0.9));
+      debugPrint('sound check: chime playing');
+    } catch (e) {
+      debugPrint('sound check failed: $e');
+    }
+    if (_music.state != PlayerState.playing) {
+      debugPrint('sound check: music was ${_music.state.name}, restarting');
+      final scene = _scene ?? MusicScene.menu;
+      _scene = null;
+      await setScene(scene);
+    }
   }
 
   bool get unlocked => _unlocked;
@@ -122,6 +138,7 @@ class AudioService {
       await _music.stop();
       await _music.setVolume(0);
       await _music.play(AssetSource(track), volume: 0);
+      debugPrint('music: playing $track');
       await _fadeTo(_targetMusicVolume, const Duration(milliseconds: 1600));
     } catch (e) {
       debugPrint('music error: $e');
@@ -178,7 +195,9 @@ class AudioService {
         await p.setVolume(sfxVolume);
         if (!kIsWeb) await p.setPlaybackRate(rate);
         await p.resume();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('sfx ${s.name} failed: $e');
+      }
     }());
   }
 

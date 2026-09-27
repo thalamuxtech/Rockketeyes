@@ -100,7 +100,7 @@ async function play(page, { gap, mistakeAt = -1 }) {
     const s = await state(page);
     if (s.round.phase !== 'playing') break;
     let word = s.round.ink;
-    if (i === mistakeAt) word = ['red', 'blue', 'green', 'yellow', 'orange', 'purple'].find((c) => c !== s.round.ink);
+    if (i === mistakeAt) word = ['red', 'blue', 'green', 'yellow', 'orange', 'purple'].find((c) => c !== s.round.ink && c !== s.round.word);
     await page.evaluate((w) => window.__speak(w), word);
     await sleep(gap);
     if (i === mistakeAt) break;

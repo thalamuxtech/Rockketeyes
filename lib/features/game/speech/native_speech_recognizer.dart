@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
@@ -10,9 +11,17 @@ import 'vocab.dart';
 
 /// Android recogniser built on the platform SpeechRecognizer
 /// (`speech_to_text`), in continuous dictation mode with partial results and
-/// automatic restarts when the engine times out.
+/// automatic restarts when the engine pauses.
+///
+/// The plugin is a single shared engine that keeps the callbacks from its
+/// *first* `initialize()`. So the engine is initialised once here, and its
+/// callbacks are forwarded to whichever recogniser is currently active (the
+/// setup check, then the game, and so on).
 class NativeSpeechRecognizer implements ColorRecognizer {
-  final SpeechToText _stt = SpeechToText();
+  static final SpeechToText _stt = SpeechToText();
+  static Future<bool>? _init;
+  static NativeSpeechRecognizer? _active;
+
   final _tokens = StreamController<RecognizedToken>.broadcast();
   final _transcripts = StreamController<String>.broadcast();
   final _levels = StreamController<double>.broadcast();
@@ -22,48 +31,81 @@ class NativeSpeechRecognizer implements ColorRecognizer {
   Vocab? _vocab;
   Set<String> _allowed = const {};
   bool _wanted = false;
-  bool _ready = false;
+  bool _disposed = false;
   int _session = 0;
   String? _lastError;
   Timer? _restart;
 
+  static Future<bool> _ensureEngine() => _init ??= _stt
+          .initialize(
+            onError: (SpeechRecognitionError e) => _active?._onEngineError(e),
+            onStatus: (String s) => _active?._onEngineStatus(s),
+          )
+          .then((ok) {
+        if (!ok) _init = null; // e.g. permission denied: allow asking again
+        return ok;
+      }).catchError((Object e) {
+        debugPrint('speech init failed: $e');
+        _init = null;
+        return false;
+      });
+
+  void _emit<T>(StreamController<T> c, T v) {
+    if (!_disposed && !c.isClosed) c.add(v);
+  }
+
+  void _onEngineError(SpeechRecognitionError e) {
+    _lastError = e.errorMsg;
+    debugPrint('stt error: ${e.errorMsg} permanent=${e.permanent}');
+    if (e.errorMsg.contains('permission') || e.errorMsg == 'error_insufficient_permissions') {
+      _lastError = 'not-allowed';
+      _emit(_status, RecognizerStatus.error);
+      return;
+    }
+    // Timeouts / no-match are routine in continuous play: restart quietly.
+    if (_wanted) _scheduleRestart();
+  }
+
+  void _onEngineStatus(String s) {
+    debugPrint('stt status: $s');
+    if (s == SpeechToText.listeningStatus) _emit(_status, RecognizerStatus.listening);
+    if ((s == SpeechToText.doneStatus || s == SpeechToText.notListeningStatus) && _wanted) {
+      _scheduleRestart();
+    }
+  }
+
   @override
   Future<bool> isSupported() async {
-    if (_ready) return true;
     // initialize() shows the RECORD_AUDIO permission prompt when needed.
-    _ready = await _stt.initialize(
-      onError: (e) {
-        _lastError = e.errorMsg;
-        // Timeouts/no-match are routine in continuous play: restart quietly.
-        if (_wanted) _scheduleRestart();
-      },
-      onStatus: (s) {
-        if (s == SpeechToText.listeningStatus) _status.add(RecognizerStatus.listening);
-        if ((s == SpeechToText.doneStatus || s == SpeechToText.notListeningStatus) && _wanted) {
-          _scheduleRestart();
-        }
-      },
-    );
-    if (!_ready) _lastError ??= 'not-allowed';
-    return _ready;
+    final ok = await _ensureEngine();
+    if (!ok) _lastError ??= 'not-allowed';
+    return ok;
   }
 
   @override
   Future<void> start({required Set<String> allowedColors}) async {
     if (!await isSupported()) {
-      _status.add(RecognizerStatus.unsupported);
+      _emit(_status, RecognizerStatus.unsupported);
       return;
     }
+    // Take over the shared engine from any previous recogniser.
+    final previous = _active;
+    if (previous != null && !identical(previous, this)) {
+      previous._wanted = false;
+      previous._restart?.cancel();
+    }
+    _active = this;
+    if (_stt.isListening) await _stt.cancel();
     _vocab = await Vocab.load();
     _allowed = allowedColors;
     _matcher = _vocab!.matcher(allowedColors)..reset();
     _wanted = true;
-    _status.add(RecognizerStatus.starting);
+    _emit(_status, RecognizerStatus.starting);
     await _listen();
   }
 
   Future<void> _listen() async {
-    if (!_wanted) return;
+    if (!_wanted || !identical(_active, this)) return;
     _session++;
     final session = _session;
     try {
@@ -71,7 +113,7 @@ class NativeSpeechRecognizer implements ColorRecognizer {
         onResult: (SpeechRecognitionResult r) => _onResult(session, r),
         onSoundLevelChange: (level) {
           // Android reports roughly -2..10 dB.
-          _levels.add(((level + 2) / 12).clamp(0.0, 1.0));
+          _emit(_levels, ((level + 2) / 12).clamp(0.0, 1.0));
         },
         listenOptions: SpeechListenOptions(
           partialResults: true,
@@ -83,6 +125,7 @@ class NativeSpeechRecognizer implements ColorRecognizer {
           contextualPhrases: _vocab?.phrases(_allowed),
         ),
       );
+      _emit(_status, RecognizerStatus.listening);
     } catch (e) {
       debugPrint('listen failed: $e');
       _scheduleRestart();
@@ -90,20 +133,21 @@ class NativeSpeechRecognizer implements ColorRecognizer {
   }
 
   void _onResult(int session, SpeechRecognitionResult r) {
+    if (!identical(_active, this)) return;
     final text = r.recognizedWords;
-    _transcripts.add(text);
+    _emit(_transcripts, text);
     final tokens = _matcher?.feedPhrase('$session', text, isFinal: r.finalResult) ?? const <RecognizedToken>[];
     debugPrint('stt[$session${r.finalResult ? ' final' : ''}] "$text" -> ${tokens.map((t) => t.color).join(',')}');
     for (final t in tokens) {
-      _tokens.add(t);
+      _emit(_tokens, t);
     }
     if (r.finalResult && _wanted) _scheduleRestart();
   }
 
   void _scheduleRestart() {
     _restart?.cancel();
-    _restart = Timer(const Duration(milliseconds: 120), () async {
-      if (!_wanted) return;
+    _restart = Timer(const Duration(milliseconds: 150), () async {
+      if (!_wanted || !identical(_active, this)) return;
       if (_stt.isListening) return;
       await _listen();
     });
@@ -113,8 +157,12 @@ class NativeSpeechRecognizer implements ColorRecognizer {
   Future<void> stop() async {
     _wanted = false;
     _restart?.cancel();
-    await _stt.cancel();
-    _status.add(RecognizerStatus.idle);
+    if (identical(_active, this)) {
+      try {
+        await _stt.cancel();
+      } catch (_) {}
+    }
+    _emit(_status, RecognizerStatus.idle);
   }
 
   @override
@@ -136,7 +184,11 @@ class NativeSpeechRecognizer implements ColorRecognizer {
   void dispose() {
     _wanted = false;
     _restart?.cancel();
-    _stt.cancel();
+    if (identical(_active, this)) {
+      _active = null;
+      _stt.cancel().catchError((_) {});
+    }
+    _disposed = true;
     _tokens.close();
     _transcripts.close();
     _levels.close();

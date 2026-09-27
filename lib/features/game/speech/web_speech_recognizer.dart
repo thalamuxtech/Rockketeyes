@@ -12,8 +12,8 @@ external _SpeechBridge? get _bridge;
 extension type _SpeechBridge._(JSObject _) implements JSObject {
   external bool supported();
   external JSString? lastError();
-  external bool start(String lang, String wordsCsv, JSFunction onEvent);
-  external void stop();
+  external int start(String lang, String wordsCsv, JSFunction onEvent);
+  external void stop(int owner);
 }
 
 /// Web Speech API recogniser (Chrome, Edge, Safari) via `web/speech_bridge.js`.
@@ -24,6 +24,7 @@ class WebSpeechRecognizer implements ColorRecognizer {
   final _status = StreamController<RecognizerStatus>.broadcast();
   TranscriptMatcher? _matcher;
   String? _lastError;
+  int _owner = 0;
 
   @override
   Future<bool> isSupported() async => _bridge?.supported() ?? false;
@@ -38,12 +39,12 @@ class WebSpeechRecognizer implements ColorRecognizer {
     final vocab = await Vocab.load();
     _matcher = vocab.matcher(allowedColors)..reset();
     _status.add(RecognizerStatus.starting);
-    final ok = bridge.start(
+    _owner = bridge.start(
       vocab.locale,
       vocab.phrases(allowedColors).join(','),
       _onEvent.toJS,
     );
-    if (!ok) {
+    if (_owner == 0) {
       _lastError = 'start-failed';
       _status.add(RecognizerStatus.error);
     }
@@ -78,7 +79,7 @@ class WebSpeechRecognizer implements ColorRecognizer {
 
   @override
   Future<void> stop() async {
-    _bridge?.stop();
+    if (_owner != 0) _bridge?.stop(_owner);
     _status.add(RecognizerStatus.idle);
   }
 
@@ -99,7 +100,7 @@ class WebSpeechRecognizer implements ColorRecognizer {
 
   @override
   void dispose() {
-    _bridge?.stop();
+    if (_owner != 0) _bridge?.stop(_owner);
     _tokens.close();
     _transcripts.close();
     _levels.close();

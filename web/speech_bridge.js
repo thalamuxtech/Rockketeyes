@@ -13,6 +13,11 @@
   var restartTimer = null;
   var lastError = null;
 
+  var owner = 0;
+  // Phones allow one microphone consumer at a time: a second getUserMedia
+  // stream (for the level meter) would silence speech recognition.
+  var MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
   var audioCtx = null;
   var stream = null;
   var levelTimer = null;
@@ -37,6 +42,8 @@
       } catch (e) { /* grammars unsupported */ }
     }
     r.onstart = function () { emit('start', { session: session }); };
+    r.onspeechstart = function () { emit('level', { v: 0.7 }); };
+    r.onspeechend = function () { emit('level', { v: 0.0 }); };
     r.onresult = function (ev) {
       var out = [];
       for (var i = ev.resultIndex; i < ev.results.length; i++) {
@@ -71,7 +78,7 @@
   }
 
   function startLevels() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    if (MOBILE || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
     navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
       .then(function (s) {
         if (!wanted) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
@@ -104,7 +111,7 @@
     supported: function () { return !!SR; },
     lastError: function () { return lastError; },
     start: function (lang, wordsCsv, onEvent) {
-      if (!SR) { return false; }
+      if (!SR) { return 0; }
       handler = onEvent;
       wanted = true;
       lastError = null;
@@ -112,11 +119,14 @@
       var words = wordsCsv ? wordsCsv.split(',') : [];
       if (rec) { try { rec.abort(); } catch (e) { /* ignore */ } }
       rec = build(lang, words);
-      try { rec.start(); } catch (e) { emit('error', { error: 'start-failed' }); return false; }
+      try { rec.start(); } catch (e) { emit('error', { error: 'start-failed' }); return 0; }
       startLevels();
-      return true;
+      owner++;
+      return owner;
     },
-    stop: function () {
+    // Only the screen that started listening can stop it.
+    stop: function (id) {
+      if (id && id !== owner) return;
       wanted = false;
       clearTimeout(restartTimer);
       if (rec) { try { rec.abort(); } catch (e) { /* ignore */ } }

@@ -163,6 +163,8 @@ try {
   await sleep(1200);
   // Setup check: sound, voice and tap.
   await clickButton(page, 'Play test sound');
+  await sleep(600);
+  await clickButton(page, 'Yes', true);
   await clickButton(page, 'Test microphone');
   await sleep(1500);
   await page.evaluate(() => window.__speakSplit('red'));

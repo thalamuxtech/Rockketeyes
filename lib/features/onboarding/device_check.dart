@@ -34,10 +34,14 @@ class _DeviceCheckPanelState extends State<DeviceCheckPanel> {
   final Set<String> _tapped = {};
   String _last = '';
   double _level = 0;
+  String _engine = '';
+  Timer? _quiet;
   bool _soundPlayed = false;
+  bool? _soundHeard;
 
   @override
   void dispose() {
+    _quiet?.cancel();
     for (final s in _subs) {
       s.cancel();
     }
@@ -72,14 +76,22 @@ class _DeviceCheckPanelState extends State<DeviceCheckPanel> {
       ..add(rec.levels.listen((v) => setState(() => _level = v)))
       ..add(rec.status.listen((s) {
         if (!mounted) return;
-        if (s == RecognizerStatus.listening) setState(() => _mic = _MicState.listening);
         final err = rec.lastError;
+        setState(() => _engine = '${s.name}${err != null && err.isNotEmpty ? ' · $err' : ''}');
+        if (s == RecognizerStatus.listening) setState(() => _mic = _MicState.listening);
         if (s == RecognizerStatus.error && (err == 'not-allowed' || err == 'service-not-allowed')) {
           setState(() => _mic = _MicState.denied);
         }
         if (s == RecognizerStatus.unsupported) setState(() => _mic = _MicState.unsupported);
       }));
     await rec.start(allowedColors: _colors.toSet());
+    // If nothing arrives for a while, say so instead of looking stuck.
+    _quiet?.cancel();
+    _quiet = Timer(const Duration(seconds: 8), () {
+      if (mounted && _heard.isEmpty && _last.isEmpty) {
+        setState(() => _engine = '${_engine.isEmpty ? 'listening' : _engine} · nothing heard yet');
+      }
+    });
     // Some engines never report "listening"; assume ready shortly after start.
     Future<void>.delayed(const Duration(seconds: 2), () {
       if (mounted && _mic == _MicState.asking) setState(() => _mic = _MicState.listening);
@@ -99,18 +111,45 @@ class _DeviceCheckPanelState extends State<DeviceCheckPanel> {
         _card(
           icon: LucideIcons.volume2,
           title: 'Sound',
-          done: _soundPlayed,
-          body: 'Play a short chime. If you hear nothing, turn up your media volume.',
-          action: GlassButton(
-            label: _soundPlayed ? 'Play again' : 'Play test sound',
-            icon: LucideIcons.play,
-            expand: false,
-            height: 46,
-            onPressed: () {
-              AudioService.instance.testSound();
-              setState(() => _soundPlayed = true);
-            },
-          ),
+          done: _soundHeard == true,
+          body: 'Play a short chime and tell us if you heard it.',
+          action: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            GlassButton(
+              label: _soundPlayed ? 'Play again' : 'Play test sound',
+              icon: LucideIcons.play,
+              expand: false,
+              height: 46,
+              onPressed: () {
+                AudioService.instance.testSound();
+                setState(() {
+                  _soundPlayed = true;
+                  _soundHeard = null;
+                });
+              },
+            ),
+            if (_soundPlayed && _soundHeard == null) ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                Text('Did you hear it?', style: AppText.label(14)),
+                const SizedBox(width: 10),
+                GlassButton(label: 'Yes', icon: LucideIcons.check, expand: false, height: 40,
+                    onPressed: () => setState(() => _soundHeard = true)),
+                const SizedBox(width: 8),
+                GlassButton(label: 'No', icon: LucideIcons.x, expand: false, height: 40,
+                    onPressed: () => setState(() => _soundHeard = false)),
+              ]),
+            ],
+            if (_soundHeard == false) ...[
+              const SizedBox(height: 10),
+              Text(
+                  kIsWeb
+                      ? 'Try this: turn up your device volume, check the tab is not muted, then tap Play again.'
+                      : 'Try this: press the volume-up button while the chime plays (media volume, not ringer), '
+                          'turn off silent or Do Not Disturb, and check that audio is not going to a Bluetooth device. '
+                          'Then tap Play again.',
+                  style: AppText.body(13, color: AppColors.gold)),
+            ],
+          ]),
         ),
         const SizedBox(height: 12),
         _card(
@@ -151,7 +190,16 @@ class _DeviceCheckPanelState extends State<DeviceCheckPanel> {
                 'You can still play with taps.',
                 style: AppText.body(13, color: AppColors.gold)),
           },
-          footer: _chips(_heard, labelSuffix: 'heard'),
+          footer: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _chips(_heard, labelSuffix: 'heard'),
+            if (_engine.isNotEmpty && _mic != _MicState.idle) ...[
+              const SizedBox(height: 8),
+              Text('Engine: $_engine', style: AppText.label(11, color: AppColors.textFaint)),
+              if (_engine.contains('nothing heard'))
+                Text('Speak clearly and close to the phone. On a phone browser, close other apps using the mic.',
+                    style: AppText.body(11, color: AppColors.textFaint)),
+            ],
+          ]),
         ),
         const SizedBox(height: 12),
         _card(
