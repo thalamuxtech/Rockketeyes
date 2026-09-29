@@ -51,6 +51,13 @@ class LocalStore {
           if (v is Map) v.cast<String, Object?>(),
       ].reversed.toList();
 
+  /// Forgets the player (profile, bests, history) but keeps device settings.
+  Future<void> clearPlayer() async {
+    await _settings.deleteAll(['nickname', 'avatarSeed', 'country', 'registered']);
+    await _bests.clear();
+    await _history.clear();
+  }
+
   Future<void> clearAll() async {
     await _settings.clear();
     await _bests.clear();

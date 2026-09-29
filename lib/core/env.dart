@@ -45,5 +45,5 @@ abstract final class Env {
   static const String googleServerClientId =
       '685148954018-l62kig231ki9b7kkl1q7mmd0jkvahjpa.apps.googleusercontent.com';
 
-  static const String privacyUrl = 'https://rockketeyes.web.app/privacy.html';
+  static const String privacyUrl = 'https://thalamuxtech.github.io/Rockketeyes/privacy.html';
 }

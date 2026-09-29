@@ -263,6 +263,23 @@ class ProfileController extends AsyncNotifier<Profile> {
     await _store.set('nickname', '');
     ref.invalidateSelf();
   }
+
+  /// Permanently deletes the player's account, scores and leaderboard rows on
+  /// the server, then forgets them on this device. A fresh anonymous player
+  /// is created afterwards. Throws [ApiException] if the server refuses.
+  Future<void> deleteAccount() async {
+    if (FirebaseAuth.instance.currentUser != null) {
+      await ApiClient.instance.post('/account/delete', {}, retry: true);
+    }
+    if (!kIsWeb && _googleReady) {
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
+    }
+    await FirebaseAuth.instance.signOut();
+    await _store.clearPlayer();
+    ref.invalidateSelf();
+  }
 }
 
 final profileProvider = AsyncNotifierProvider<ProfileController, Profile>(ProfileController.new);

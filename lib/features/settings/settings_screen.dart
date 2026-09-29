@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/env.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../../core/widgets/nebula_background.dart';
+import '../../core/widgets/toast.dart';
 import '../../services/audio_service.dart';
+import '../../services/profile.dart';
 import '../../services/settings.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -123,6 +126,16 @@ class SettingsScreen extends ConsumerWidget {
                         subtitle: Text(Env.apiBase, style: AppText.body(12, color: AppColors.textFaint)),
                       ),
                     ]),
+                  section('Account', [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(LucideIcons.trash2, size: 18, color: AppColors.textMuted),
+                      title: Text('Delete account and data', style: AppText.label(14)),
+                      subtitle: Text('Removes your profile, scores and leaderboard entries for good',
+                          style: AppText.body(12, color: AppColors.textFaint)),
+                      onTap: () => _deleteAccount(context, ref),
+                    ),
+                  ]),
                   section('About', [
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -153,10 +166,11 @@ class SettingsScreen extends ConsumerWidget {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(LucideIcons.lock, size: 18, color: AppColors.textMuted),
-                      title: Text('Privacy', style: AppText.label(14)),
+                      title: Text('Privacy Policy', style: AppText.label(14)),
                       subtitle: Text(
                           'Voice is processed by your device or browser speech service and never stored by Rockketeyes.',
                           style: AppText.body(12, color: AppColors.textFaint)),
+                      onTap: () => launchUrl(Uri.parse(Env.privacyUrl), mode: LaunchMode.externalApplication),
                     ),
                   ]),
                 ],
@@ -166,5 +180,32 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Delete your account?', style: AppText.heading(20)),
+        content: Text(
+            'Your nickname, avatar, country, scores and leaderboard entries will be deleted. '
+            'If you linked Google, the link is removed too. This cannot be undone.',
+            style: AppText.body(14, color: AppColors.textMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(profileProvider.notifier).deleteAccount();
+      if (context.mounted) showToast(context, 'Your account and data were deleted');
+    } catch (e) {
+      if (context.mounted) {
+        showToast(context, 'Could not delete right now. Check your connection and try again.',
+            icon: LucideIcons.circleAlert);
+      }
+    }
   }
 }

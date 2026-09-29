@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "685148954018-gs72glcr1anoa9mdt40qs6b1vkemp0b4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rockketeyes.app",
+            "certificate_hash": "9c66feaa874850d44dc4394a06e26bf7a380fdc6"
+          }
+        },
+        {
           "client_id": "685148954018-l62kig231ki9b7kkl1q7mmd0jkvahjpa.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -486,6 +486,38 @@ async function handleProfileGet(uid: string) {
   return { profile: profileOut(uid, snap.data() as UserDoc, google) };
 }
 
+/** Deletes everything stored for [uid]: profile, nickname, scores, leaderboard rows, rounds and the Auth account. */
+async function handleAccountDelete(uid: string) {
+  const firestore = db();
+  const userRef = firestore.collection('users').doc(uid);
+  const userSnap = await userRef.get();
+  const nicknameLower = userSnap.exists ? (userSnap.data() as UserDoc).nicknameLower : undefined;
+
+  const refs: DocumentReference[] = [userRef];
+  if (nicknameLower) {
+    const nickRef = firestore.collection('nicknames').doc(nicknameLower);
+    const nickSnap = await nickRef.get();
+    if (nickSnap.exists && nickSnap.data()!.uid === uid) refs.push(nickRef);
+  }
+  for (const name of ['scores', 'bests', 'rounds']) {
+    const snap = await firestore.collection(name).where('uid', '==', uid).select().get();
+    refs.push(...snap.docs.map((d) => d.ref));
+  }
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = firestore.batch();
+    for (const ref of refs.slice(i, i + 450)) batch.delete(ref);
+    await batch.commit();
+  }
+
+  try {
+    await getAuth().deleteUser(uid);
+  } catch (e) {
+    if ((e as { code?: string }).code !== 'auth/user-not-found') throw e;
+  }
+  logger.info('Account deleted', { uid, docs: refs.length });
+  return { deleted: true, docs: refs.length };
+}
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -506,7 +538,7 @@ export const api = onRequest(
         res.json({ ok: true, generatorVersion: GENERATOR_VERSION, scoringVersion: SCORING_VERSION });
         return;
       }
-      const known = ['POST /round/start', 'POST /score/submit', 'POST /profile', 'GET /profile', 'POST /legends/claim'];
+      const known = ['POST /round/start', 'POST /score/submit', 'POST /profile', 'GET /profile', 'POST /legends/claim', 'POST /account/delete'];
       if (!known.includes(route)) {
         const pathKnown = known.some((k) => k.endsWith(` ${path}`));
         throw pathKnown
@@ -528,6 +560,9 @@ export const api = onRequest(
           break;
         case 'POST /legends/claim':
           out = await handleLegendsClaim(uid);
+          break;
+        case 'POST /account/delete':
+          out = await handleAccountDelete(uid);
           break;
         default:
           out = await handleProfileGet(uid);

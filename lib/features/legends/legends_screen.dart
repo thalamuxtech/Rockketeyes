@@ -218,42 +218,41 @@ class _LegendsScreenState extends ConsumerState<LegendsScreen> {
             ),
           ],
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Segmented<LegendPeriod>(
-                  values: LegendPeriod.values,
-                  selected: _period,
-                  labelOf: (p) => switch (p) {
-                    LegendPeriod.today => 'Today',
-                    LegendPeriod.week => 'Week',
-                    LegendPeriod.all => 'All-time',
-                  },
-                  onChanged: (p) {
-                    _period = p;
-                    _load();
-                  },
-                ),
-              ),
-              if (_size != null) const SizedBox(width: 10),
-              if (_size != null)
-                SizedBox(
-                  width: 150,
-                  child: Segmented<InputMode>(
-                    values: InputMode.values,
-                    selected: _mode,
-                    labelOf: (m) => m == InputMode.voice ? 'Voice' : 'Tap',
-                    iconOf: (m) => m == InputMode.voice
-                        ? LucideIcons.mic
-                        : LucideIcons.pointer,
-                    onChanged: (m) {
-                      _mode = m;
-                      _load();
-                    },
-                  ),
-                ),
-            ],
-          ),
+          Builder(builder: (context) {
+            final period = Segmented<LegendPeriod>(
+              values: LegendPeriod.values,
+              selected: _period,
+              labelOf: (p) => switch (p) {
+                LegendPeriod.today => 'Today',
+                LegendPeriod.week => 'Week',
+                LegendPeriod.all => 'All-time',
+              },
+              onChanged: (p) {
+                _period = p;
+                _load();
+              },
+            );
+            if (_size == null) return period;
+            final mode = Segmented<InputMode>(
+              values: InputMode.values,
+              selected: _mode,
+              labelOf: (m) => m == InputMode.voice ? 'Voice' : 'Tap',
+              iconOf: (m) => m == InputMode.voice ? LucideIcons.mic : LucideIcons.pointer,
+              onChanged: (m) {
+                _mode = m;
+                _load();
+              },
+            );
+            // Side by side only when both fit; phones stack them.
+            if (MediaQuery.sizeOf(context).width < 420) {
+              return Column(children: [period, const SizedBox(height: 10), mode]);
+            }
+            return Row(children: [
+              Expanded(child: period),
+              const SizedBox(width: 10),
+              SizedBox(width: 150, child: mode),
+            ]);
+          }),
           if (profile != null && profile.country.isNotEmpty) ...[
             const SizedBox(height: 10),
             Row(

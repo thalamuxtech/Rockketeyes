@@ -14,7 +14,7 @@ class _Section {
   final String body;
 }
 
-const _updated = 'Last updated 26 September 2026';
+const _updated = 'Last updated 29 September 2026';
 
 const _terms = [
   _Section('Agreement',
@@ -24,7 +24,7 @@ const _terms = [
           'diagnose, treat or measure any health condition. Take regular breaks and rest your eyes.'),
   _Section('Your account',
       'You can play as a guest. Connecting a Google account saves your progress and places your scores on Global Legends. You are '
-          'responsible for activity on your account. You can change your nickname, avatar and country at any time.'),
+          'responsible for activity on your account. You can change your nickname, avatar and country at any time, and delete your account and scores in Settings.'),
   _Section('Fair play',
       'Play with your own voice or taps. Do not use bots, scripts, recordings or other tools to answer, and do not interfere with the '
           'service or other players. Nicknames must not be offensive, impersonate others or contain personal information. We may remove '
@@ -45,7 +45,7 @@ const _terms = [
       'To the extent the law allows, Thalamuxtech is not liable for indirect or consequential losses arising from use of the app.'),
   _Section('Changes',
       'We may update these terms. Continuing to use Rockketeyes after an update means you accept the new terms.'),
-  _Section('Contact', 'Questions: use the developer contact listed on the Rockketeyes Google Play page or at thalamux-tech.web.app.'),
+  _Section('Contact', 'Questions: email ismailukman@gmail.com or visit thalamux-tech.web.app.'),
 ];
 
 const _license = [

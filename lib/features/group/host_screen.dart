@@ -344,18 +344,28 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = room.config;
+    // Phones have no room for the title: the pills shrink to fit instead.
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final pills = Row(mainAxisSize: MainAxisSize.min, children: [
+      Pill(label: '${c.size.label} · ${c.colorSet.name.toUpperCase()} · ${c.voice ? 'VOICE' : 'TAP'}',
+          color: AppColors.violet, icon: LucideIcons.grid3x3),
+      const SizedBox(width: AppSpace.sm),
+      Pill(label: '$players PLAYER${players == 1 ? '' : 'S'}', icon: LucideIcons.users),
+    ]);
     return Row(children: [
       GlassIconButton(icon: LucideIcons.x, tooltip: 'Close room', onPressed: onClose),
       const SizedBox(width: AppSpace.md),
       const RockketeyesLogo(size: 40),
       const SizedBox(width: AppSpace.sm),
       Expanded(
-        child: Text('Group challenge', style: AppText.heading(20), overflow: TextOverflow.ellipsis),
+        child: narrow
+            ? Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(fit: BoxFit.scaleDown, child: pills),
+              )
+            : Text('Group challenge', style: AppText.heading(20), overflow: TextOverflow.ellipsis),
       ),
-      Pill(label: '${c.size.label} · ${c.colorSet.name.toUpperCase()} · ${c.voice ? 'VOICE' : 'TAP'}',
-          color: AppColors.violet, icon: LucideIcons.grid3x3),
-      const SizedBox(width: AppSpace.sm),
-      Pill(label: '$players PLAYER${players == 1 ? '' : 'S'}', icon: LucideIcons.users),
+      if (!narrow) pills,
     ]);
   }
 }

@@ -281,7 +281,10 @@ class _HudStat extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppText.label(10, color: AppColors.textFaint).copyWith(letterSpacing: 1.4)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, style: AppText.label(10, color: AppColors.textFaint).copyWith(letterSpacing: 1.4)),
+          ),
           const SizedBox(height: 2),
           FittedBox(fit: BoxFit.scaleDown, child: child),
         ],
